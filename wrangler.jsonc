@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hanigames",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-02",
+  "assets": { "directory": "./public" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "hanigames-db", "database_id": "PUT_YOUR_D1_DATABASE_ID_HERE" }
+  ],
+  "exports": {
+    "GameRoom": { "type": "durable-object", "storage": "sqlite" }
+  }
+}
