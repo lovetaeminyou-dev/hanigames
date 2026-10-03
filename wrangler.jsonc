@@ -6,13 +6,11 @@
   "assets": {
     "directory": "./public"
   },
-"d1_databases": [
-  {
-    "binding": "DB",
-    "database_name": "hani-games-db",
-    "database_id": "e8aa0913-f0c7-449e-a0de-08bcdc7487db"
-  }
-]
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hani-games-db",
+      "database_id": "e8aa0913-f0c7-449e-a0de-08bcdc7487db"
     }
   ],
   "exports": {
