@@ -1,24 +1,8 @@
 const GAMES={
-  minesweeper:{
-    name:"지뢰찾기",
-    icon:"💣",
-    desc:"숫자를 보고 지뢰를 피하세요. 깃발과 연쇄 오픈까지 지원합니다."
-  },
-  shisen:{
-    name:"사천성",
-    icon:"🀄",
-    desc:"같은 타일을 최대 두 번 꺾어 연결하면 제거됩니다."
-  },
-  omok:{
-    name:"오목",
-    icon:"⚫",
-    desc:"15×15 바둑판에서 먼저 5목을 완성하세요."
-  },
-  tetris:{
-    name:"싱글 테트리스",
-    icon:"🧱",
-    desc:"블록을 회전·이동해 줄을 지우고 최고점에 도전하세요."
-  }
+  minesweeper:{name:"지뢰찾기",icon:"💣",desc:"숫자를 보고 지뢰를 피하세요. 깃발과 연쇄 오픈까지 지원합니다."},
+  shisen:{name:"사천성",icon:"🀄",desc:"같은 타일을 최대 두 번 꺾어 연결하면 제거됩니다."},
+  omok:{name:"오목",icon:"⚫",desc:"15×15 바둑판에서 먼저 5목을 완성하세요."},
+  tetris:{name:"싱글 테트리스",icon:"🧱",desc:"블록을 회전·이동해 줄을 지우고 최고점에 도전하세요."}
 };
 
 let S={
@@ -91,6 +75,7 @@ function logout(){
   localStorage.removeItem("haniToken");
 
   S.user=null;
+
   render();
 }
 
@@ -106,12 +91,12 @@ function bunny(evo){
     "👑🐰",
     "💎🐰",
     "🌟🐰"
-  ][Math.min(evo||0,5)];
+  ][Math.min(evo,5)];
 }
 
 
 /* =========================================================
-   공지
+   관리자 공지
 ========================================================= */
 
 function notice(){
@@ -132,7 +117,10 @@ function notice(){
       </span>
 
       <button onclick="noticeAction()">
-        ${esc(n.button_text||"확인")}
+        ${esc(
+          n.button_text||
+          "확인"
+        )}
       </button>
     </div>
   `;
@@ -145,7 +133,9 @@ function noticeAction(){
       window.HANI_NOTICE?.button_link||""
     ).trim();
 
-  if(/^https?:\/\//i.test(url)){
+  if(
+    /^https?:\/\//i.test(url)
+  ){
 
     window.open(
       url,
@@ -155,8 +145,9 @@ function noticeAction(){
 
   }else{
 
-    toast("공지사항을 확인해주세요 💙");
-
+    toast(
+      "공지사항을 확인해주세요 💙"
+    );
   }
 }
 
@@ -279,7 +270,6 @@ function loginPage(){
 
         <div class="field">
           <label>닉네임</label>
-
           <input
             id="loginName"
             placeholder="닉네임"
@@ -288,7 +278,6 @@ function loginPage(){
 
         <div class="field">
           <label>비밀번호</label>
-
           <input
             id="loginPw"
             type="password"
@@ -355,8 +344,9 @@ async function login(){
 
   }catch(e){
 
-    toast(e.message);
-
+    toast(
+      e.message
+    );
   }
 }
 
@@ -410,8 +400,9 @@ async function register(){
 
   }catch(e){
 
-    toast(e.message);
-
+    toast(
+      e.message
+    );
   }
 }
 
@@ -465,7 +456,6 @@ async function home(){
   }catch(e){
 
     return logout();
-
   }
 
   const u=S.user;
@@ -491,11 +481,9 @@ async function home(){
         <div class="hero-main">
 
           <div class="bunny-box">
-
             <div class="bunny">
               ${bunny(u.evolution)}
             </div>
-
           </div>
 
           <div>
@@ -516,7 +504,7 @@ async function home(){
               </span>
 
               <span class="tag">
-                ✨ ${esc(u.title||"초보 하니")}
+                ✨ ${esc(u.title)}
               </span>
 
               <span class="tag">
@@ -540,7 +528,7 @@ async function home(){
           <div class="stat">
             <small>포인트</small>
             <strong>
-              ${Number(u.points||0).toLocaleString()}P
+              ${u.points.toLocaleString()}P
             </strong>
           </div>
 
@@ -554,14 +542,14 @@ async function home(){
           <div class="stat">
             <small>체력</small>
             <strong>
-              ${u.energy??100}%
+              ${u.energy}%
             </strong>
           </div>
 
           <div class="stat">
             <small>포만감</small>
             <strong>
-              ${u.fullness??100}%
+              ${u.fullness}%
             </strong>
           </div>
 
@@ -575,7 +563,10 @@ async function home(){
         >
 
           Lv.${u.level+1}까지
-          ${Math.max(0,need-u.xp)} XP 남음
+          ${Math.max(
+            0,
+            need-u.xp
+          )} XP 남음
 
           <span style="float:right">
             ${u.xp} / ${need}
@@ -584,7 +575,9 @@ async function home(){
         </div>
 
         <div class="progress">
-          <i style="width:${pct}%"></i>
+          <i
+            style="width:${pct}%"
+          ></i>
         </div>
 
       </section>
@@ -593,6 +586,7 @@ async function home(){
       <div class="section-title">
         오늘의 생활 행동
       </div>
+
 
       <div class="action-grid">
 
@@ -628,6 +622,7 @@ async function home(){
         생활과 게임을 하면서
         기록을 채워보세요.
       </div>
+
 
       <div
         class="card"
@@ -746,14 +741,17 @@ async function doAction(a){
 
     S.user=d.user;
 
-    toast(d.message);
+    toast(
+      d.message
+    );
 
     home();
 
   }catch(e){
 
-    toast(e.message);
-
+    toast(
+      e.message
+    );
   }
 }
 
@@ -776,12 +774,14 @@ async function games(){
         대전해 보세요.
       </div>
 
+
       <div
         class="section-title"
         style="font-size:21px"
       >
         포인트 개인게임
       </div>
+
 
       <div class="game-grid">
 
@@ -796,6 +796,7 @@ async function games(){
 
       </div>
 
+
       <div
         class="section-title"
         style="font-size:21px"
@@ -807,17 +808,22 @@ async function games(){
         방을 만들고 친구와 함께 플레이하세요.
       </div>
 
+
       ${
         [
-          ["omok","오목"],
-          ["tetris","테트리스 대전"],
-          ["shisen","사천성 대전"]
+          "오목",
+          "테트리스 대전",
+          "사천성 대전"
         ]
         .map(
-          x=>
+          (x,i)=>
             roomSection(
-              x[0],
-              x[1]
+              [
+                "omok",
+                "tetris",
+                "shisen"
+              ][i],
+              x
             )
         )
         .join("")
@@ -897,30 +903,61 @@ function roomSection(
 
       </div>
 
+
       <div
         class="rooms"
         id="rooms-${game}"
       >
 
-        ${[1,2,3].map(n=>`
+        <div class="card room">
 
-          <div class="card room">
-
-            <div>
-              <h4>${n}번방</h4>
-              <p>비어있음</p>
-            </div>
-
-            <button
-              class="secondary"
-              onclick="createRoom('${game}')"
-            >
-              입장
-            </button>
-
+          <div>
+            <h4>1번방</h4>
+            <p>비어있음</p>
           </div>
 
-        `).join("")}
+          <button
+            class="secondary"
+            onclick="createRoom('${game}')"
+          >
+            입장
+          </button>
+
+        </div>
+
+
+        <div class="card room">
+
+          <div>
+            <h4>2번방</h4>
+            <p>비어있음</p>
+          </div>
+
+          <button
+            class="secondary"
+            onclick="createRoom('${game}')"
+          >
+            입장
+          </button>
+
+        </div>
+
+
+        <div class="card room">
+
+          <div>
+            <h4>3번방</h4>
+            <p>비어있음</p>
+          </div>
+
+          <button
+            class="secondary"
+            onclick="createRoom('${game}')"
+          >
+            입장
+          </button>
+
+        </div>
 
       </div>
 
@@ -928,7 +965,9 @@ function roomSection(
   `;
 }
 
-async function createRoom(game){
+async function createRoom(
+  game
+){
 
   try{
 
@@ -955,8 +994,9 @@ async function createRoom(game){
 
   }catch(e){
 
-    toast(e.message);
-
+    toast(
+      e.message
+    );
   }
 }
 
@@ -974,7 +1014,9 @@ async function openRoom(
   renderModal();
 }
 
-async function renderRooms(game){
+async function renderRooms(
+  game
+){
 
   try{
 
@@ -1044,7 +1086,9 @@ async function ranks(){
                 </span>
 
                 <span class="rank-value">
-                  ${esc(String(u[key]??0))}
+                  ${esc(
+                    String(u[key])
+                  )}
                 </span>
 
               </div>
@@ -1096,9 +1140,11 @@ async function ranks(){
 
       </div>
 
+
       <div class="section-title">
         게임별 순위
       </div>
+
 
       <div class="rank-grid">
 
@@ -1235,10 +1281,11 @@ async function profile(){
         </h2>
 
         <p class="center muted">
-          ${esc(u.title||"초보 하니")}
+          ${esc(u.title)}
           ·
           ${u.evolution+1}세대
         </p>
+
 
         <div class="stats">
 
@@ -1255,7 +1302,7 @@ async function profile(){
           <div class="stat">
             <small>포인트</small>
             <strong>
-              ${Number(u.points||0).toLocaleString()}
+              ${u.points.toLocaleString()}
             </strong>
           </div>
 
@@ -1269,6 +1316,7 @@ async function profile(){
         </div>
 
       </div>
+
 
       <div class="section-title">
         계정
@@ -1289,7 +1337,9 @@ async function profile(){
    MODAL
 ========================================================= */
 
-function openModal(type){
+function openModal(
+  type
+){
 
   S.modal={
     type
@@ -1344,8 +1394,8 @@ function renderModal(){
             <h2>
               ${
                 g
-                  ?g.icon+" "+g.name
-                  :"게임방"
+                ?g.icon+" "+g.name
+                :"게임방"
               }
             </h2>
 
@@ -1381,12 +1431,9 @@ function renderModal(){
     );
 }
 
-
-/* =========================================================
-   GAME START
-========================================================= */
-
-function startGame(type){
+function startGame(
+  type
+){
 
   S.modal=null;
 
@@ -1442,7 +1489,6 @@ function gamePage(
 
 /* =========================================================
    MINESWEEPER
-   모바일 열기 / 깃발 / 롱프레스 지원
 ========================================================= */
 
 function minesweeper(){
@@ -1469,12 +1515,9 @@ function minesweeper(){
     );
 
   let done=false;
-
-  let mobileMode="open";
-
-  let touchTimer=null;
-  let touchMoved=false;
-  let suppressClick=false;
+  let msMode="open";
+  let pressTimer=null;
+  let longPressed=false;
 
   let mines=[];
 
@@ -1639,98 +1682,58 @@ function minesweeper(){
     renderBoard();
   }
 
-
-  function setMobileMode(
-    mode
-  ){
-
-    mobileMode=mode;
-
-    renderBoard();
-  }
-
-
-  function touchStart(
+  function tap(
     r,
     c
   ){
-
-    touchMoved=false;
-
-    clearTimeout(
-      touchTimer
-    );
-
-    touchTimer=
-      setTimeout(
-        ()=>{
-
-          if(
-            !touchMoved
-          ){
-
-            suppressClick=true;
-
-            toggleFlag(
-              r,
-              c
-            );
-          }
-
-        },
-        500
-      );
+    if(msMode==="flag")
+      toggleFlag(r,c);
+    else
+      reveal(r,c);
   }
 
-
-  function touchMove(){
-
-    touchMoved=true;
-
-    clearTimeout(
-      touchTimer
-    );
-  }
-
-
-  function touchEnd(){
-
-    clearTimeout(
-      touchTimer
-    );
-  }
-
-
-  function cellClick(
+  function startPress(
+    event,
     r,
     c
   ){
+    if(done) return;
 
-    if(
-      suppressClick
-    ){
+    longPressed=false;
+    clearTimeout(pressTimer);
 
-      suppressClick=false;
+    pressTimer=setTimeout(()=>{
+      longPressed=true;
+      toggleFlag(r,c);
+      if(event){
+        event.preventDefault();
+      }
+    },450);
+  }
 
+  function endPress(
+    event,
+    r,
+    c
+  ){
+    clearTimeout(pressTimer);
+    pressTimer=null;
+
+    if(longPressed){
+      longPressed=false;
+      if(event)
+        event.preventDefault();
       return;
     }
 
     if(
-      mobileMode==="flag"
+      event &&
+      event.type==="pointerup" &&
+      event.pointerType==="mouse" &&
+      event.button===2
     ){
-
-      toggleFlag(
-        r,
-        c
-      );
-
-    }else{
-
-      reveal(
-        r,
-        c
-      );
-
+      event.preventDefault();
+      toggleFlag(r,c);
     }
   }
 
@@ -1755,37 +1758,35 @@ function minesweeper(){
           board[r][c];
 
         cells.push(`
-
           <button
             class="
               ms-cell
               ${open[r][c]?"open":""}
               ${flag[r][c]?"flag":""}
             "
-
-            onclick="
-              MS.click(${r},${c})
+            style="
+              min-width:0;
+              width:100%;
+              aspect-ratio:1;
+              padding:0;
+              touch-action:none;
+              font-size:clamp(11px,4.2vw,20px);
             "
-
+            onclick="
+              MS.tap(${r},${c})
+            "
+            onpointerdown="
+              MS.startPress(event,${r},${c})
+            "
+            onpointerup="
+              MS.endPress(event,${r},${c})
+            "
+            onpointercancel="
+              MS.endPress(event,${r},${c})
+            "
             oncontextmenu="
               event.preventDefault();
               MS.flag(${r},${c})
-            "
-
-            ontouchstart="
-              MS.touchStart(${r},${c})
-            "
-
-            ontouchmove="
-              MS.touchMove()
-            "
-
-            ontouchend="
-              MS.touchEnd()
-            "
-
-            ontouchcancel="
-              MS.touchEnd()
             "
           >
             ${
@@ -1800,90 +1801,36 @@ function minesweeper(){
                 :""
             }
           </button>
-
         `);
       }
-
-
-    const modeButtons=`
-
-      <div
-        style="
-          display:flex;
-          gap:8px;
-          margin-bottom:10px;
-        "
-      >
-
-        <button
-          class="${
-            mobileMode==="open"
-            ?"primary"
-            :"secondary"
-          }"
-          style="
-            flex:1;
-            min-width:0;
-          "
-          onclick="
-            MS.mode('open')
-          "
-        >
-          👆 열기
-        </button>
-
-        <button
-          class="${
-            mobileMode==="flag"
-            ?"primary"
-            :"secondary"
-          }"
-          style="
-            flex:1;
-            min-width:0;
-          "
-          onclick="
-            MS.mode('flag')
-          "
-        >
-          🚩 깃발
-        </button>
-
-      </div>
-
-    `;
-
 
     $("#app").innerHTML=
       gamePage(
         "💣 지뢰찾기",
 
         `
-
           <div
             class="card"
             style="
-              padding:10px;
+              padding:clamp(6px,2vw,12px);
+              width:100%;
+              max-width:520px;
+              margin:0 auto;
+              box-sizing:border-box;
               overflow:hidden;
             "
           >
 
-            ${modeButtons}
-
             <div
               class="ms-board"
               style="
-                grid-template-columns:
-                  repeat(
-                    ${M},
-                    minmax(0,1fr)
-                  );
-                width:min(
-                  100%,
-                  420px
-                );
+                width:100%;
                 max-width:100%;
-                margin:0 auto;
+                box-sizing:border-box;
+                display:grid;
+                grid-template-columns:repeat(${M},minmax(0,1fr));
+                gap:2px;
+                overflow:hidden;
               "
             >
               ${cells.join("")}
@@ -1891,37 +1838,50 @@ function minesweeper(){
 
           </div>
 
-          <p
-            class="muted center"
-            style="line-height:1.6"
+          <div
+            class="ms-controls"
+            style="
+              display:grid;
+              grid-template-columns:1fr 1fr;
+              gap:8px;
+              margin:10px auto 0;
+              max-width:520px;
+            "
           >
-            모바일:
-            <b>열기 / 깃발</b>
-            버튼 사용 ·
-            타일을 <b>길게 누르면 깃발</b>
+            <button
+              class="${msMode==="open"?"primary":"secondary"}"
+              onclick="MS.mode('open')"
+            >
+              👆 열기
+            </button>
 
-            <br>
+            <button
+              class="${msMode==="flag"?"primary":"secondary"}"
+              onclick="MS.mode('flag')"
+            >
+              🚩 깃발
+            </button>
+          </div>
 
-            PC:
-            좌클릭 열기 ·
-            우클릭 깃발
-
+          <p class="muted center" style="margin-top:9px">
+            모바일: <b>열기 / 깃발</b> 버튼 사용 ·
+            길게 누르면 깃발
           </p>
-
         `
       );
   }
 
-
   window.MS={
     reveal,
-    click:cellClick,
+    tap,
     toggle:toggleFlag,
     flag:toggleFlag,
-    mode:setMobileMode,
-    touchStart,
-    touchMove,
-    touchEnd
+    mode(m){
+      msMode=m==="flag"?"flag":"open";
+      renderBoard();
+    },
+    startPress,
+    endPress
   };
 
   renderBoard();
@@ -1930,7 +1890,6 @@ function minesweeper(){
 
 /* =========================================================
    SHISEN
-   모바일 반응형 8×8
 ========================================================= */
 
 function shisen(){
@@ -1946,262 +1905,678 @@ function shisen(){
     "🐼","🐸","🐯","🐨",
     "🐹","🐵","🐶","🐱",
     "🦄","🐥","🦋","🌸",
-    "🍀","💎","🎈","🎀"
+    "💎","🎈","🎀","🍉"
   ];
 
-  let vals=[
-    ...tiles,
-    ...tiles
-  ].sort(
-    ()=>Math.random()-.5
-  );
-
-  let sel=null;
+  let vals=[];
 
   let alive=
-    Array(
-      R*C
-    ).fill(true);
+    Array(R*C).fill(true);
+
+  let selected=null;
+
+  let drawPath=null;
+
+  let busy=false;
+
+  let hintTimer=null;
 
 
-  function id(
+  const dirs=[
+    [1,0],
+    [-1,0],
+    [0,1],
+    [0,-1]
+  ];
+
+
+  const id=(
     r,
     c
+  )=>
+    r*C+c;
+
+
+  function shuffle(
+    arr
   ){
 
-    return r*C+c;
+    return arr
+      .slice()
+      .sort(
+        ()=>Math.random()-.5
+      );
+
   }
 
 
-  function path(
+  function makeValues(){
+
+    const pool=[];
+
+    /*
+      32종 × 2개 = 64칸
+    */
+
+    for(
+      let i=0;
+      i<32;
+      i++
+    ){
+
+      pool.push(
+        tiles[i]
+      );
+
+      pool.push(
+        tiles[i]
+      );
+
+    }
+
+    return shuffle(
+      pool
+    );
+
+  }
+
+
+  /* =========================================================
+     사천성 핵심 경로 탐색
+
+     실제 보드 바깥에 한 칸의 빈 공간이 있다고 생각한다.
+
+       ┌─────────────────┐
+       │   바깥 빈 공간   │
+       │ ┌─────────────┐ │
+       │ │   타일판    │ │
+       │ └─────────────┘ │
+       └─────────────────┘
+
+     따라서 타일 → 바깥 → 타일 경로도 가능하다.
+
+     방향이 바뀔 때마다 꺾임 +1
+     최대 2회전까지만 허용한다.
+  ========================================================= */
+
+  function findPath(
     a,
     b
   ){
 
-    if(
-      a.r===b.r
-    ){
+    const H=
+      R+2;
 
-      let lo=
-        Math.min(
-          a.c,
-          b.c
-        );
+    const W=
+      C+2;
 
-      let hi=
-        Math.max(
-          a.c,
-          b.c
-        );
+    /*
+      실제 타일 좌표 +1
 
-      for(
-        let c=lo+1;
-        c<hi;
-        c++
-      )
+      예:
+      실제 0,0
+      → 패딩 1,1
 
-        if(
-          alive[
-            id(a.r,c)
-          ]
-        )
-          return false;
+      패딩 0과 9는
+      보드 바깥 공간이다.
+    */
 
-      return true;
-    }
+    const sr=
+      a.r+1;
+
+    const sc=
+      a.c+1;
+
+    const tr=
+      b.r+1;
+
+    const tc=
+      b.c+1;
 
 
-    if(
-      a.c===b.c
-    ){
+    /*
+      상태:
+      row
+      col
+      direction
+      turns
+    */
 
-      let lo=
-        Math.min(
-          a.r,
-          b.r
-        );
-
-      let hi=
-        Math.max(
-          a.r,
-          b.r
-        );
-
-      for(
-        let r=lo+1;
-        r<hi;
-        r++
-      )
-
-        if(
-          alive[
-            id(r,a.c)
-          ]
-        )
-          return false;
-
-      return true;
-    }
-
-
-    const corners=[
-      {
-        r:a.r,
-        c:b.c
-      },
-      {
-        r:b.r,
-        c:a.c
-      }
+    const queue=[
+      [
+        sr,
+        sc,
+        -1,
+        0
+      ]
     ];
+
+    let head=0;
+
+
+    const seen=
+      new Set();
+
+
+    seen.add(
+      `${sr},${sc},-1,0`
+    );
+
+
+    const parent=
+      new Map();
+
+
+    function stateKey(
+      r,
+      c,
+      d,
+      t
+    ){
+
+      return (
+        `${r},${c},${d},${t}`
+      );
+
+    }
+
+
+    while(
+      head<queue.length
+    ){
+
+      const [
+        r,
+        c,
+        direction,
+        turns
+      ]=
+        queue[head++];
+
+
+      for(
+        let nd=0;
+        nd<4;
+        nd++
+      ){
+
+        /*
+          처음 이동은
+          꺾임 0회.
+
+          방향이 바뀌면
+          꺾임 +1.
+        */
+
+        const nextTurns=
+          direction===-1 ||
+          direction===nd
+          ?turns
+          :turns+1;
+
+
+        if(
+          nextTurns>2
+        )
+          continue;
+
+
+        let nr=
+          r+
+          dirs[nd][0];
+
+        let nc=
+          c+
+          dirs[nd][1];
+
+
+        /*
+          같은 방향으로
+          가능한 만큼 직진한다.
+        */
+
+        while(
+          nr>=0 &&
+          nr<H &&
+          nc>=0 &&
+          nc<W
+        ){
+
+          /*
+            목적지 도착
+          */
+
+          if(
+            nr===tr &&
+            nc===tc
+          ){
+
+            const targetKey=
+              stateKey(
+                nr,
+                nc,
+                nd,
+                nextTurns
+              );
+
+
+            parent.set(
+              targetKey,
+              stateKey(
+                r,
+                c,
+                direction,
+                turns
+              )
+            );
+
+
+            /*
+              경로 복원
+            */
+
+            const path=[];
+
+            let current=
+              targetKey;
+
+
+            while(
+              current
+            ){
+
+              const parts=
+                current
+                  .split(",")
+                  .map(Number);
+
+
+              /*
+                패딩 좌표를
+                실제 선 좌표용으로 변환
+
+                1 → 0
+                0 → -1
+              */
+
+              path.push({
+                r:
+                  parts[0]-1,
+
+                c:
+                  parts[1]-1
+              });
+
+
+              current=
+                parent.get(
+                  current
+                )||null;
+
+            }
+
+
+            path.reverse();
+
+            return path;
+
+          }
+
+
+          /*
+            보드 안쪽의
+            살아있는 타일은
+            통과할 수 없다.
+          */
+
+          if(
+            nr>=1 &&
+            nr<=R &&
+            nc>=1 &&
+            nc<=C
+          ){
+
+            const rr=
+              nr-1;
+
+            const cc=
+              nc-1;
+
+
+            if(
+              alive[
+                id(rr,cc)
+              ]
+            ){
+
+              break;
+
+            }
+
+          }
+
+
+          const k=
+            stateKey(
+              nr,
+              nc,
+              nd,
+              nextTurns
+            );
+
+
+          if(
+            !seen.has(k)
+          ){
+
+            seen.add(k);
+
+
+            parent.set(
+              k,
+              stateKey(
+                r,
+                c,
+                direction,
+                turns
+              )
+            );
+
+
+            queue.push([
+              nr,
+              nc,
+              nd,
+              nextTurns
+            ]);
+
+          }
+
+
+          nr+=
+            dirs[nd][0];
+
+          nc+=
+            dirs[nd][1];
+
+        }
+
+      }
+
+    }
+
+
+    return null;
+
+  }
+
+
+  /* =========================================================
+     현재 판에서 가능한 조합 찾기
+  ========================================================= */
+
+  function anyMove(){
+
+    const groups={};
 
 
     for(
-      const x of corners
+      let r=0;
+      r<R;
+      r++
     ){
 
-      if(
-        !alive[
-          id(
-            x.r,
-            x.c
-          )
-        ]
-        ||
-        (
-          x.r===a.r&&
-          x.c===a.c
-        )
-        ||
-        (
-          x.r===b.r&&
-          x.c===b.c
-        )
+      for(
+        let c=0;
+        c<C;
+        c++
       ){
 
-        let ok1=true;
-        let ok2=true;
-
-        let lo=
-          Math.min(
-            a.c,
-            x.c
-          );
-
-        let hi=
-          Math.max(
-            a.c,
-            x.c
-          );
-
-        for(
-          let c=lo+1;
-          c<hi;
-          c++
+        if(
+          !alive[
+            id(r,c)
+          ]
         )
-
-          if(
-            alive[
-              id(a.r,c)
-            ]
-          )
-            ok1=false;
+          continue;
 
 
-        lo=
-          Math.min(
-            a.r,
-            x.r
-          );
-
-        hi=
-          Math.max(
-            a.r,
-            x.r
-          );
-
-        for(
-          let r=lo+1;
-          r<hi;
-          r++
-        )
-
-          if(
-            alive[
-              id(r,a.c)
-            ]
-          )
-            ok1=false;
-
-
-        lo=
-          Math.min(
-            x.c,
-            b.c
-          );
-
-        hi=
-          Math.max(
-            x.c,
-            b.c
-          );
-
-        for(
-          let c=lo+1;
-          c<hi;
-          c++
-        )
-
-          if(
-            alive[
-              id(b.r,c)
-            ]
-          )
-            ok2=false;
-
-
-        lo=
-          Math.min(
-            x.r,
-            b.r
-          );
-
-        hi=
-          Math.max(
-            x.r,
-            b.r
-          );
-
-        for(
-          let r=lo+1;
-          r<hi;
-          r++
-        )
-
-          if(
-            alive[
-              id(r,b.c)
-            ]
-          )
-            ok2=false;
+        const value=
+          vals[
+            id(r,c)
+          ];
 
 
         if(
-          ok1&&
-          ok2
+          !groups[value]
         )
-          return true;
+          groups[value]=[];
+
+
+        groups[value].push({
+          r,
+          c
+        });
+
       }
+
     }
 
-    return false;
+
+    for(
+      const list
+      of Object.values(groups)
+    ){
+
+      for(
+        let i=0;
+        i<list.length;
+        i++
+      ){
+
+        for(
+          let j=i+1;
+          j<list.length;
+          j++
+        ){
+
+          const path=
+            findPath(
+              list[i],
+              list[j]
+            );
+
+
+          if(path){
+
+            return {
+              a:list[i],
+              b:list[j],
+              path
+            };
+
+          }
+
+        }
+
+      }
+
+    }
+
+
+    return null;
+
   }
 
+
+  /* =========================================================
+     새 판 생성
+
+     처음부터 최소 한 쌍은
+     연결 가능하도록 만든다.
+  ========================================================= */
+
+  function newBoard(){
+
+    for(
+      let n=0;
+      n<300;
+      n++
+    ){
+
+      vals=
+        makeValues();
+
+      alive=
+        Array(R*C)
+          .fill(true);
+
+
+      if(
+        anyMove()
+      ){
+
+        return;
+
+      }
+
+    }
+
+
+    /*
+      극히 드물게 반복 실패하면
+      마지막 랜덤판 사용
+    */
+
+    vals=
+      makeValues();
+
+    alive=
+      Array(R*C)
+        .fill(true);
+
+  }
+
+
+  /* =========================================================
+     남은 타일 셔플
+
+     셔플 후에도 가능한 수가 있도록 만든다.
+  ========================================================= */
+
+  function shuffleRemaining(){
+
+    const positions=[];
+    const items=[];
+
+
+    for(
+      let r=0;
+      r<R;
+      r++
+    ){
+
+      for(
+        let c=0;
+        c<C;
+        c++
+      ){
+
+        if(
+          alive[
+            id(r,c)
+          ]
+        ){
+
+          positions.push(
+            id(r,c)
+          );
+
+          items.push(
+            vals[
+              id(r,c)
+            ]
+          );
+
+        }
+
+      }
+
+    }
+
+
+    for(
+      let n=0;
+      n<500;
+      n++
+    ){
+
+      const mixed=
+        shuffle(
+          items
+        );
+
+
+      positions.forEach(
+        (
+          p,
+          i
+        )=>{
+
+          vals[p]=
+            mixed[i];
+
+        }
+      );
+
+
+      if(
+        anyMove()
+      ){
+
+        return true;
+
+      }
+
+    }
+
+
+    return false;
+
+  }
+
+
+  /* =========================================================
+     경로 → SVG 좌표
+  ========================================================= */
+
+  function pathToPoints(
+    path
+  ){
+
+    return path
+      .map(
+        p=>
+          `${p.c+.5},${p.r+.5}`
+      )
+      .join(" ");
+
+  }
+
+
+  /* =========================================================
+     타일 클릭
+  ========================================================= */
 
   function click(
     r,
     c
   ){
+
+    if(
+      busy
+    )
+      return;
+
 
     if(
       !alive[
@@ -2211,101 +2586,316 @@ function shisen(){
       return;
 
 
-    if(!sel){
+    /*
+      첫 번째 선택
+    */
 
-      sel={
+    if(
+      !selected
+    ){
+
+      selected={
         r,
         c
       };
 
-      return render();
+      render();
+
+      return;
+
     }
 
+
+    /*
+      같은 타일을
+      다시 누르면 선택 해제
+    */
 
     if(
-      sel.r===r&&
-      sel.c===c
+      selected.r===r &&
+      selected.c===c
     ){
 
-      sel=null;
+      selected=null;
 
-      return render();
+      render();
+
+      return;
+
     }
 
+
+    const a={
+      ...selected
+    };
+
+    const b={
+      r,
+      c
+    };
+
+
+    /*
+      그림이 같은지 확인
+    */
 
     if(
       vals[
-        id(
-          sel.r,
-          sel.c
-        )
+        id(a.r,a.c)
       ]
       ===
       vals[
-        id(r,c)
+        id(b.r,b.c)
       ]
-      &&
-      path(
-        sel,
-        {
-          r,
-          c
-        }
-      )
     ){
 
-      alive[
-        id(
-          sel.r,
-          sel.c
-        )
-      ]=false;
-
-      alive[
-        id(r,c)
-      ]=false;
-
-      sel=null;
-
-
-      if(
-        alive.every(
-          x=>!x
-        )
-      ){
-
-        alert(
-          "🎉 사천성 클리어!"
+      const path=
+        findPath(
+          a,
+          b
         );
+
+
+      /*
+        실제 연결 가능
+      */
+
+      if(path){
+
+        busy=true;
+
+        selected=null;
+
+        drawPath=
+          path;
+
+        render();
+
+
+        /*
+          선을 보여준 뒤
+          타일 제거
+        */
+
+        setTimeout(
+          ()=>{
+
+            alive[
+              id(a.r,a.c)
+            ]=false;
+
+
+            alive[
+              id(b.r,b.c)
+            ]=false;
+
+
+            drawPath=null;
+
+            busy=false;
+
+            render();
+
+
+            /*
+              전부 제거
+            */
+
+            if(
+              alive.every(
+                v=>!v
+              )
+            ){
+
+              setTimeout(
+                ()=>{
+                  alert(
+                    "🎉 사천성 클리어!"
+                  );
+                },
+                50
+              );
+
+              return;
+
+            }
+
+
+            /*
+              더 이상 가능한 수가 없으면
+              자동 셔플
+            */
+
+            if(
+              !anyMove()
+            ){
+
+              if(
+                shuffleRemaining()
+              ){
+
+                toast(
+                  "🔀 더 이상 연결할 수 없어 자동으로 셔플했어요!"
+                );
+
+                render();
+
+              }
+
+            }
+
+          },
+          420
+        );
+
+
+        return;
+
       }
 
-    }else{
-
-      sel={
-        r,
-        c
-      };
     }
 
+
+    /*
+      연결할 수 없으면
+      방금 누른 타일을 새 선택으로
+    */
+
+    selected={
+      r,
+      c
+    };
+
     render();
+
   }
 
+
+  /* =========================================================
+     힌트
+  ========================================================= */
+
+  function hint(){
+
+    if(
+      busy
+    )
+      return;
+
+
+    const move=
+      anyMove();
+
+
+    /*
+      가능한 수가 없으면
+      자동 셔플
+    */
+
+    if(
+      !move
+    ){
+
+      if(
+        shuffleRemaining()
+      ){
+
+        toast(
+          "🔀 가능한 수가 없어 셔플했어요!"
+        );
+
+        render();
+
+      }
+
+      return;
+
+    }
+
+
+    selected=
+      move.a;
+
+    drawPath=
+      move.path;
+
+
+    render();
+
+
+    clearTimeout(
+      hintTimer
+    );
+
+
+    hintTimer=
+      setTimeout(
+        ()=>{
+
+          drawPath=null;
+
+          render();
+
+        },
+        1000
+      );
+
+  }
+
+
+  /* =========================================================
+     수동 셔플
+  ========================================================= */
+
+  function shuffleBoard(){
+
+    if(
+      busy
+    )
+      return;
+
+
+    if(
+      shuffleRemaining()
+    ){
+
+      selected=null;
+
+      drawPath=null;
+
+
+      toast(
+        "🔀 남은 타일을 섞었어요!"
+      );
+
+
+      render();
+
+    }
+
+  }
+
+
+  /* =========================================================
+     화면 렌더
+  ========================================================= */
 
   function render(){
 
     const cells=[];
 
+
     for(
       let r=0;
       r<R;
       r++
-    )
+    ){
 
       for(
         let c=0;
         c<C;
         c++
-      )
+      ){
 
         cells.push(`
 
@@ -2313,15 +2903,45 @@ function shisen(){
             class="
               shisen-cell
               ${
-                sel&&
-                sel.r===r&&
-                sel.c===c
+                selected &&
+                selected.r===r &&
+                selected.c===c
                 ?"selected"
                 :""
               }
             "
+            style="
+              min-width:0;
+              width:100%;
+              aspect-ratio:1;
+
+              padding:0;
+              margin:0;
+
+              box-sizing:border-box;
+
+              overflow:hidden;
+
+              display:flex;
+              align-items:center;
+              justify-content:center;
+
+              font-size:
+                clamp(
+                  12px,
+                  5.5vw,
+                  30px
+                );
+
+              line-height:1;
+
+              touch-action:manipulation;
+            "
             onclick="
-              SH.click(${r},${c})
+              SH.click(
+                ${r},
+                ${c}
+              )
             "
           >
 
@@ -2339,6 +2959,65 @@ function shisen(){
 
         `);
 
+      }
+
+    }
+
+
+    /*
+      연결선
+
+      보드 바깥 경로까지 표시할 수 있도록
+      SVG 영역을 보드보다 조금 크게 만든다.
+    */
+
+    const line=
+      drawPath
+      ?`
+
+        <svg
+          viewBox="-1 -1 10 10"
+          preserveAspectRatio="none"
+          style="
+            position:absolute;
+            inset:-10px;
+
+            width:
+              calc(100% + 20px);
+
+            height:
+              calc(100% + 20px);
+
+            overflow:visible;
+
+            z-index:20;
+
+            pointer-events:none;
+          "
+        >
+
+          <polyline
+            points="
+              ${pathToPoints(drawPath)}
+            "
+            fill="none"
+            stroke="#7b61d8"
+            stroke-width=".16"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+
+        </svg>
+
+      `
+      :"";
+
+
+    const remaining=
+      alive.filter(
+        Boolean
+      ).length;
+
 
     $("#app").innerHTML=
       gamePage(
@@ -2349,53 +3028,165 @@ function shisen(){
           <div
             class="card"
             style="
-              padding:8px;
-              overflow:hidden;
+              padding:
+                clamp(
+                  6px,
+                  2vw,
+                  10px
+                );
+
+              width:100%;
+
+              max-width:520px;
+
+              margin:0 auto;
+
+              box-sizing:border-box;
+
+              overflow:visible;
             "
           >
 
             <div
-              class="shisen-board"
               style="
-                grid-template-columns:
-                  repeat(
-                    ${C},
-                    minmax(0,1fr)
-                  );
-                width:min(
-                  100%,
-                  420px
-                );
-                max-width:100%;
-                margin:0 auto;
+                position:relative;
+
+                width:100%;
+
+                overflow:visible;
               "
             >
-              ${cells.join("")}
+
+              <div
+                class="shisen-board"
+                style="
+                  position:relative;
+
+                  z-index:1;
+
+                  width:100%;
+
+                  display:grid;
+
+                  grid-template-columns:
+                    repeat(
+                      ${C},
+                      minmax(0,1fr)
+                    );
+
+                  gap:
+                    clamp(
+                      2px,
+                      .8vw,
+                      5px
+                    );
+
+                  overflow:visible;
+                "
+              >
+
+                ${cells.join("")}
+
+              </div>
+
+              ${line}
+
             </div>
 
           </div>
 
+
+          <div
+            style="
+              display:grid;
+
+              grid-template-columns:
+                1fr 1fr;
+
+              gap:8px;
+
+              margin:
+                10px auto 0;
+
+              max-width:520px;
+            "
+          >
+
+            <button
+              class="secondary"
+              onclick="
+                SH.hint()
+              "
+            >
+              💡 힌트
+            </button>
+
+
+            <button
+              class="secondary"
+              onclick="
+                SH.shuffle()
+              "
+            >
+              🔀 셔플
+            </button>
+
+          </div>
+
+
+          <div
+            class="card"
+            style="
+              padding:10px;
+              margin-top:10px;
+              text-align:center;
+            "
+          >
+
+            <b>
+              남은 타일
+              ${remaining}개
+            </b>
+
+          </div>
+
+
           <p
             class="muted center"
-            style="line-height:1.6"
+            style="
+              margin-top:9px;
+              line-height:1.65;
+            "
           >
-            같은 타일을 최대 2번
-            꺾어 연결하세요.
+
+            같은 타일을 선택하고
+            빈 공간을 가로·세로로
+            <b>최대 2번</b> 꺾어 연결하세요.
+
             <br>
-            휴대폰 화면에 맞춰
-            타일 크기가 자동 조절됩니다.
+
+            보드 바깥쪽 빈 공간으로
+            돌아가는 경로도 가능합니다.
+
           </p>
 
         `
       );
+
   }
 
 
   window.SH={
-    click
+    click,
+    hint,
+    shuffle:shuffleBoard
   };
 
+
+  newBoard();
+
   render();
+
 }
 
 
@@ -2526,14 +3317,12 @@ function omok(){
       )
 
         cells.push(`
-
           <button
             class="omok-cell"
             onclick="
               OM.put(${r},${c})
             "
           >
-
             ${
               b[r][c]
               ?`
@@ -2550,9 +3339,7 @@ function omok(){
               `
               :""
             }
-
           </button>
-
         `);
 
 
@@ -2561,7 +3348,6 @@ function omok(){
         "⚫ 오목",
 
         `
-
           <div
             class="card"
             style="padding:8px"
@@ -2581,11 +3367,9 @@ function omok(){
               :"⚪ 백"
             }
           </p>
-
         `
       );
   }
-
 
   window.OM={
     put
@@ -2676,7 +3460,6 @@ function tetris(){
           (v,x)=>{
 
             if(v)
-
               b[
                 p.y+y
               ][
@@ -2832,7 +3615,6 @@ function tetris(){
               p.y+y<H&&
               p.x+x<W
             )
-
               a[
                 p.y+y
               ][
@@ -2849,7 +3631,6 @@ function tetris(){
         "🧱 테트리스",
 
         `
-
           <div class="tetris-wrap">
 
             <div class="tetris-board">
@@ -2933,6 +3714,7 @@ function tetris(){
 
           </div>
 
+
           <p class="center muted">
             ${
               over
@@ -2940,7 +3722,6 @@ function tetris(){
               :"버튼으로 블록을 움직여 보세요."
             }
           </p>
-
         `
       );
   }
@@ -2954,7 +3735,6 @@ function tetris(){
 
   render();
 
-
   clearInterval(
     window.ti
   );
@@ -2962,10 +3742,8 @@ function tetris(){
   window.ti=
     setInterval(
       ()=>{
-
         if(!over)
           down();
-
       },
       700
     );
@@ -2987,20 +3765,19 @@ function toast(
 
   e.textContent=msg;
 
-  e.style.cssText=`
-    position:fixed;
-    left:50%;
-    bottom:95px;
-    transform:translateX(-50%);
-    background:#1f2a39;
-    color:#fff;
-    padding:13px 18px;
-    border-radius:999px;
-    z-index:100;
-    font-weight:800;
-    max-width:90%;
-    text-align:center;
-  `;
+  e.style.cssText=
+    `
+      position:fixed;
+      left:50%;
+      bottom:95px;
+      transform:translateX(-50%);
+      background:#1f2a39;
+      color:#fff;
+      padding:13px 18px;
+      border-radius:999px;
+      z-index:100;
+      font-weight:800
+    `;
 
   document.body.appendChild(e);
 
@@ -3055,7 +3832,6 @@ function toast(
       button_link:
         ""
     };
-
   }
 
 
@@ -3073,7 +3849,6 @@ function toast(
   }catch{
 
     render();
-
   }
 
 })();
