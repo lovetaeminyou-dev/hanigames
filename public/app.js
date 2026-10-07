@@ -963,78 +963,6 @@ function roomSection(
 
     </section>
   `;
-}        </div>
-
-        <button
-          class="primary"
-          style="font-size:16px"
-          onclick="createRoom('${game}')"
-        >
-          방 만들기
-        </button>
-
-      </div>
-
-
-      <div
-        class="rooms"
-        id="rooms-${game}"
-      >
-
-        <div class="card room">
-
-          <div>
-            <h4>1번방</h4>
-            <p>비어있음</p>
-          </div>
-
-          <button
-            class="secondary"
-            onclick="createRoom('${game}')"
-          >
-            입장
-          </button>
-
-        </div>
-
-
-        <div class="card room">
-
-          <div>
-            <h4>2번방</h4>
-            <p>비어있음</p>
-          </div>
-
-          <button
-            class="secondary"
-            onclick="createRoom('${game}')"
-          >
-            입장
-          </button>
-
-        </div>
-
-
-        <div class="card room">
-
-          <div>
-            <h4>3번방</h4>
-            <p>비어있음</p>
-          </div>
-
-          <button
-            class="secondary"
-            onclick="createRoom('${game}')"
-          >
-            입장
-          </button>
-
-        </div>
-
-      </div>
-
-    </section>
-  `;
 }
 
 async function createRoom(
@@ -1069,8 +997,7 @@ async function createRoom(
     toast(
       e.message
     );
-  }
-}
+  }}
 
 async function openRoom(
   code,
@@ -1853,7 +1780,8 @@ function minesweeper(){
             onpointerup="
               MS.endPress(event,${r},${c})
             "
-            onpointercancel="              MS.endPress(event,${r},${c})
+            onpointercancel="
+              MS.endPress(event,${r},${c})
             "
             oncontextmenu="
               event.preventDefault();
@@ -1964,7 +1892,7 @@ function minesweeper(){
 
 function shisen(){
   const R=8,C=8;
-  const tiles=["🍎","🍋","🍇","🍒","🥝","🍉","🍑","🍓","🍊","🍍","🥕","🌽","🍀","⭐","🐰","🦊","🐼","🐸","🐯","🐨","🐹","🐵","🐶","🐱","🦄","🐥","🦋","🌸","💎","🎈","🎀","🍉"];
+  const tiles=["🍎","🍋","🍇","🍒","🥝","🍉","🍑","🍓","🍊","🍍","🥕","🌽","🍀","⭐","🐰","🦊","🐼","🐸","🐯","🐨","🐹","🐵","🐶","🐱","🦄","🐥","🦋","🌸","💎","🎈","🎀","🥭"];
   let vals=[],alive=Array(R*C).fill(true),selected=null,drawPath=null,busy=false,hintTimer=null;
   const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
   const id=(r,c)=>r*C+c;
@@ -1994,6 +1922,7 @@ function shisen(){
             const out=[]; let cur=k;
             while(cur){const z=cur.split(',').map(Number);out.push({r:z[0]-1,c:z[1]-1});cur=parent.get(cur)||null;}
             out.reverse();
+            // 시작/끝의 패딩 좌표도 남겨서 바깥 경로의 선을 그릴 수 있게 한다.
             return out;
           }
           if(nr>=1&&nr<=R&&nc>=1&&nc<=C&&alive[id(nr-1,nc-1)]) break;
@@ -2067,7 +1996,6 @@ function shisen(){
     if(busy)return;
     if(shuffleRemaining()){selected=null;drawPath=null;toast('🔀 남은 타일을 섞었어요!');render();}
   }
-
   function render(){
     const cells=[];
     for(let r=0;r<R;r++)for(let c=0;c<C;c++)cells.push(`<button class="shisen-cell ${selected&&selected.r===r&&selected.c===c?'selected':''}" style="min-width:0;width:100%;aspect-ratio:1;padding:0;margin:0;box-sizing:border-box;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:clamp(12px,5.5vw,30px);line-height:1;touch-action:manipulation" onclick="SH.click(${r},${c})">${alive[id(r,c)]?vals[id(r,c)]:''}</button>`);
