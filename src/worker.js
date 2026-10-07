@@ -37,7 +37,7 @@ function bytesToBase64Url(bytes) {
 }
 
 function base64UrlToBytes(value) {
-  let s = value
+  let s = String(value || "")
     .replaceAll("-", "+")
     .replaceAll("_", "/");
 
@@ -180,8 +180,6 @@ async function getCurrentUser(request, env) {
     }
   }
 
-  /* 기존 x-user-name 방식 호환 */
-
   const headerName =
     request.headers.get("x-user-name");
 
@@ -196,6 +194,7 @@ async function getCurrentUser(request, env) {
         )
         .bind(username)
         .first();
+
     } catch {}
   }
 
@@ -321,6 +320,7 @@ async function register(request, env) {
     });
 
   } catch (error) {
+
     console.error(
       "REGISTER ERROR:",
       error
@@ -345,15 +345,21 @@ async function register(request, env) {
 ========================= */
 
 async function login(request, env) {
+
   try {
+
     const body =
       await readJson(request);
 
     const username =
-      String(body.username || "").trim();
+      String(
+        body.username || ""
+      ).trim();
 
     const password =
-      String(body.password || "");
+      String(
+        body.password || ""
+      );
 
     if (!username || !password) {
       return json(
@@ -364,6 +370,10 @@ async function login(request, env) {
         400
       );
     }
+
+    /*
+      사용자 조회
+    */
 
     const user =
       await env.DB
@@ -383,14 +393,20 @@ async function login(request, env) {
       );
     }
 
+    /*
+      비밀번호 확인
+    */
+
     const stored =
-      String(user.password_hash || "");
+      String(
+        user.password_hash || ""
+      );
 
     if (!stored) {
       return json(
         {
           error:
-            "이 계정의 비밀번호 정보가 없습니다. 관리자에게 문의해주세요."
+            "이 계정에는 비밀번호 정보가 없습니다."
         },
         500
       );
@@ -403,21 +419,32 @@ async function login(request, env) {
       salt:hash
     */
 
-    if (stored.includes(":")) {
+    if (
+      stored.includes(":")
+    ) {
+
       const index =
         stored.indexOf(":");
 
       const salt =
-        stored.slice(0, index);
+        stored.slice(
+          0,
+          index
+        );
 
       const savedHash =
-        stored.slice(index + 1);
+        stored.slice(
+          index + 1
+        );
 
-      if (!salt || !savedHash) {
+      if (
+        !salt ||
+        !savedHash
+      ) {
         return json(
           {
             error:
-              "비밀번호 정보가 올바르지 않습니다."
+              "비밀번호 정보 형식이 잘못되었습니다."
           },
           500
         );
@@ -430,7 +457,8 @@ async function login(request, env) {
         );
 
       verified =
-        currentHash === savedHash;
+        currentHash ===
+        savedHash;
 
     } else {
 
@@ -445,7 +473,8 @@ async function login(request, env) {
         );
 
       verified =
-        currentHash === stored;
+        currentHash ===
+        stored;
     }
 
     if (!verified) {
@@ -458,25 +487,44 @@ async function login(request, env) {
       );
     }
 
+    /*
+      로그인 성공
+    */
+
     return json({
-      user: publicUser(user),
-      token: makeToken(user)
+      user:
+        publicUser(user),
+
+      token:
+        makeToken(user)
     });
 
   } catch (error) {
+
+    /*
+      ⭐ 핵심
+      Cloudflare 에러 페이지 대신
+      실제 오류를 JSON으로 보여줌
+    */
+
     console.error(
       "LOGIN ERROR:",
       error
     );
 
+    const detail =
+      String(
+        error?.message ||
+        error
+      );
+
     return json(
       {
         error:
-          "로그인 처리 중 오류가 발생했습니다.",
-        detail:
-          String(
-            error?.message || error
-          )
+          "로그인 오류: " +
+          detail,
+
+        detail
       },
       500
     );
@@ -488,6 +536,7 @@ async function login(request, env) {
 ========================= */
 
 async function me(request, env) {
+
   const user =
     await getCurrentUser(
       request,
@@ -505,7 +554,8 @@ async function me(request, env) {
   }
 
   return json({
-    user: publicUser(user)
+    user:
+      publicUser(user)
   });
 }
 
@@ -514,6 +564,7 @@ async function me(request, env) {
 ========================= */
 
 async function action(request, env) {
+
   const user =
     await getCurrentUser(
       request,
@@ -534,23 +585,35 @@ async function action(request, env) {
     await readJson(request);
 
   const actionType =
-    String(body.action || "");
+    String(
+      body.action || ""
+    );
 
   let points =
-    Number(user.points || 0);
+    Number(
+      user.points || 0
+    );
 
   let xp =
-    Number(user.xp || 0);
+    Number(
+      user.xp || 0
+    );
 
   let level =
-    Number(user.level || 1);
+    Number(
+      user.level || 1
+    );
 
   let evolution =
-    Number(user.evolution || 0);
+    Number(
+      user.evolution || 0
+    );
 
   let message = "";
 
-  if (actionType === "work") {
+  if (
+    actionType === "work"
+  ) {
 
     points += 500;
     xp += 25;
@@ -558,14 +621,18 @@ async function action(request, env) {
     message =
       "💼 일해서 500P와 XP를 얻었어요!";
 
-  } else if (actionType === "cook") {
+  } else if (
+    actionType === "cook"
+  ) {
 
     xp += 15;
 
     message =
       "🍳 요리를 완료했어요!";
 
-  } else if (actionType === "rest") {
+  } else if (
+    actionType === "rest"
+  ) {
 
     xp += 10;
 
@@ -593,7 +660,9 @@ async function action(request, env) {
 
     level++;
 
-    if (level % 5 === 0) {
+    if (
+      level % 5 === 0
+    ) {
 
       evolution++;
 
@@ -631,7 +700,8 @@ async function action(request, env) {
 
   return json({
     message,
-    user: publicUser(updated)
+    user:
+      publicUser(updated)
   });
 }
 
@@ -683,8 +753,10 @@ async function ranking(env) {
     rankings: {
       points:
         points.results || [],
+
       level:
         level.results || [],
+
       games:
         games.results || []
     }
@@ -701,13 +773,17 @@ async function rooms(
   user
 ) {
 
-  if (request.method === "GET") {
+  if (
+    request.method === "GET"
+  ) {
 
     const url =
       new URL(request.url);
 
     const game =
-      url.searchParams.get("game");
+      url.searchParams.get(
+        "game"
+      );
 
     let result;
 
@@ -758,7 +834,9 @@ async function rooms(
     });
   }
 
-  if (request.method === "POST") {
+  if (
+    request.method === "POST"
+  ) {
 
     const body =
       await readJson(request);
@@ -771,7 +849,9 @@ async function rooms(
     const stake =
       Math.max(
         0,
-        Number(body.stake || 0)
+        Number(
+          body.stake || 0
+        )
       );
 
     const allowed = [
@@ -780,7 +860,9 @@ async function rooms(
       "shisen"
     ];
 
-    if (!allowed.includes(game)) {
+    if (
+      !allowed.includes(game)
+    ) {
       return json(
         {
           error:
@@ -792,7 +874,9 @@ async function rooms(
 
     if (
       stake >
-      Number(user.points || 0)
+      Number(
+        user.points || 0
+      )
     ) {
       return json(
         {
@@ -805,7 +889,11 @@ async function rooms(
 
     let code = "";
 
-    for (let i = 0; i < 10; i++) {
+    for (
+      let i = 0;
+      i < 10;
+      i++
+    ) {
 
       code =
         Math.random()
@@ -821,7 +909,9 @@ async function rooms(
           .bind(code)
           .first();
 
-      if (!exists) break;
+      if (!exists) {
+        break;
+      }
     }
 
     await env.DB
@@ -905,7 +995,10 @@ async function joinRoom(
     );
   }
 
-  if (room.host_id === user.id) {
+  if (
+    room.host_id ===
+    user.id
+  ) {
     return json({
       ok: true,
       room
@@ -1000,7 +1093,10 @@ async function requireAdmin(
     };
   }
 
-  if (user.role !== "admin") {
+  if (
+    user.role !==
+    "admin"
+  ) {
     return {
       error:
         json(
@@ -1344,7 +1440,9 @@ async function adminNoticeToggle(
     }
 
     const next =
-      Number(notice.active) === 1
+      Number(
+        notice.active
+      ) === 1
         ? 0
         : 1;
 
@@ -1471,7 +1569,10 @@ async function publicNotice(env) {
 
 export class GameRoom {
 
-  constructor(state, env) {
+  constructor(
+    state,
+    env
+  ) {
     this.state = state;
     this.env = env;
     this.sockets = new Set();
@@ -1497,19 +1598,25 @@ export class GameRoom {
 
       server.accept();
 
-      this.sockets.add(server);
+      this.sockets.add(
+        server
+      );
 
       server.addEventListener(
         "close",
         () => {
-          this.sockets.delete(server);
+          this.sockets.delete(
+            server
+          );
         }
       );
 
       server.addEventListener(
         "error",
         () => {
-          this.sockets.delete(server);
+          this.sockets.delete(
+            server
+          );
         }
       );
 
@@ -1537,7 +1644,8 @@ export class GameRoom {
 
       server.send(
         JSON.stringify({
-          type: "connected",
+          type:
+            "connected",
           message:
             "GameRoom 연결 성공"
         })
@@ -1554,7 +1662,8 @@ export class GameRoom {
 
     return json({
       ok: true,
-      type: "GameRoom"
+      type:
+        "GameRoom"
     });
   }
 
@@ -1564,16 +1673,21 @@ export class GameRoom {
       JSON.stringify(data);
 
     for (
-      const socket of this.sockets
+      const socket
+      of this.sockets
     ) {
 
       try {
 
-        socket.send(message);
+        socket.send(
+          message
+        );
 
       } catch {
 
-        this.sockets.delete(socket);
+        this.sockets.delete(
+          socket
+        );
       }
     }
   }
@@ -1585,10 +1699,15 @@ export class GameRoom {
 
 export default {
 
-  async fetch(request, env) {
+  async fetch(
+    request,
+    env
+  ) {
 
     const url =
-      new URL(request.url);
+      new URL(
+        request.url
+      );
 
     /* =========================
        PUBLIC NOTICE
@@ -1597,9 +1716,12 @@ export default {
     if (
       url.pathname ===
         "/api/notices" &&
-      request.method === "GET"
+      request.method ===
+        "GET"
     ) {
-      return publicNotice(env);
+      return publicNotice(
+        env
+      );
     }
 
     /* =========================
@@ -1609,7 +1731,8 @@ export default {
     if (
       url.pathname ===
         "/api/register" &&
-      request.method === "POST"
+      request.method ===
+        "POST"
     ) {
       return register(
         request,
@@ -1624,7 +1747,8 @@ export default {
     if (
       url.pathname ===
         "/api/login" &&
-      request.method === "POST"
+      request.method ===
+        "POST"
     ) {
       return login(
         request,
@@ -1642,7 +1766,8 @@ export default {
     ) {
 
       if (
-        request.method === "GET"
+        request.method ===
+        "GET"
       ) {
         return adminNoticeList(
           request,
@@ -1651,7 +1776,8 @@ export default {
       }
 
       if (
-        request.method === "POST"
+        request.method ===
+        "POST"
       ) {
         return adminNoticeCreate(
           request,
@@ -1671,7 +1797,8 @@ export default {
         updateMatch[1];
 
       if (
-        request.method === "PUT"
+        request.method ===
+        "PUT"
       ) {
         return adminNoticeUpdate(
           request,
@@ -1681,7 +1808,8 @@ export default {
       }
 
       if (
-        request.method === "DELETE"
+        request.method ===
+        "DELETE"
       ) {
         return adminNoticeDelete(
           request,
@@ -1698,7 +1826,8 @@ export default {
 
     if (
       toggleMatch &&
-      request.method === "POST"
+      request.method ===
+      "POST"
     ) {
       return adminNoticeToggle(
         request,
@@ -1712,7 +1841,9 @@ export default {
     ========================= */
 
     if (
-      url.pathname.startsWith("/api/")
+      url.pathname.startsWith(
+        "/api/"
+      )
     ) {
 
       const user =
@@ -1748,7 +1879,8 @@ export default {
       if (
         url.pathname ===
           "/api/action" &&
-        request.method === "POST"
+        request.method ===
+          "POST"
       ) {
         return action(
           request,
@@ -1762,7 +1894,9 @@ export default {
         url.pathname ===
         "/api/ranking"
       ) {
-        return ranking(env);
+        return ranking(
+          env
+        );
       }
 
       /* ROOMS */
@@ -1787,7 +1921,8 @@ export default {
 
       if (
         joinMatch &&
-        request.method === "POST"
+        request.method ===
+        "POST"
       ) {
         return joinRoom(
           request,
@@ -1806,7 +1941,8 @@ export default {
 
       if (
         roomMatch &&
-        request.method === "GET"
+        request.method ===
+        "GET"
       ) {
         return roomState(
           env,
@@ -1831,7 +1967,9 @@ export default {
         const room =
           env.GameRoom.get(id);
 
-        return room.fetch(request);
+        return room.fetch(
+          request
+        );
       }
     }
 
@@ -1839,6 +1977,8 @@ export default {
        STATIC ASSETS
     ========================= */
 
-    return env.ASSETS.fetch(request);
+    return env.ASSETS.fetch(
+      request
+    );
   }
 };
