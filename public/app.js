@@ -22,7 +22,6 @@ async function api(path, options = {}) {
   const r = await fetch(path, options);
 
   const d = await r.json().catch(() => ({}));
-
   if (!r.ok) {
     throw new Error(d.error || '요청 실패');
   }
@@ -42,14 +41,13 @@ const esc = x =>
     }[c])
   );
 
-function top(back = '') {
+function headerBar(back = '') {
   return `
     <div class="top">
       <div class="brand">
         🐰 하니게임즈
         <small>1:1 미니게임</small>
       </div>
-
       ${
         back
           ? '<button class="back" onclick="home()">뒤로</button>'
@@ -75,7 +73,7 @@ async function points() {
 function page(content, back = '') {
   A.innerHTML = `
     <div class="wrap">
-      ${top(back)}
+      ${headerBar(back)}
       ${content}
     </div>
   `;
@@ -137,7 +135,6 @@ function home() {
     </div>
 
     <div class="card">
-
       <div class="title">
         <h2>🎮 1:1 대전</h2>
         <span class="muted">실시간</span>
@@ -176,7 +173,6 @@ function home() {
     </div>
 
     <div class="card">
-
       <div class="title">
         <h2>🏆 TOP 5</h2>
       </div>
@@ -282,9 +278,11 @@ async function lobby(g) {
       </div>
 
       <div id="rooms">
+
         <div class="empty">
           불러오는 중...
         </div>
+
       </div>
 
     </div>
@@ -419,6 +417,7 @@ async function openRoom(code) {
       if (m.type === 'room') {
         render(m.state);
       }
+
     } catch {}
   };
 
@@ -554,6 +553,7 @@ function render(s) {
                   s.game === 'shisen'
                     ? `
                       <div class="board">
+
                         ${(s.board || []).map((x, i) =>
                           x
                             ? `
@@ -572,6 +572,7 @@ function render(s) {
                               <div class="tile off"></div>
                             `
                         ).join('')}
+
                       </div>
                     `
                     : `
