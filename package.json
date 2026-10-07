@@ -1,1 +1,11 @@
-{"name":"hanigames","private":true,"scripts":{"check":"wrangler deploy --dry-run"},"devDependencies":{"wrangler":"^4.0.0"}}
+{
+  "name": "hanigames",
+  "private": true,
+  "scripts": {
+    "check": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
