@@ -999,2097 +999,101 @@ async function createRoom(
     );
   }
 }
-
-async function openRoom(
-  code,
-  game
-){
-
-  S.modal={
-    type:"room",
-    code,
-    game
-  };
-
-  renderModal();
-}
-
-async function renderRooms(
-  game
-){
-
-  try{
-
-    return await api(
-      "/api/rooms?game="+
-      encodeURIComponent(game)
-    );
-
-  }catch{
-
-    return {
-      rooms:[]
-    };
-  }
-}
-
-
-/* =========================================================
-   RANKING
-========================================================= */
-
-async function ranks(){
-
-  let d={
-    rankings:{
-      points:[],
-      level:[],
-      games:[]
-    }
-  };
-
-  try{
-
-    d=
-      await api(
-        "/api/ranking"
-      );
-
-  }catch{}
-
-  const make=(
-    title,
-    arr,
-    key
-  )=>`
-
-    <div class="card rank-card">
-
-      <h4>
-        ${title}
-      </h4>
-
-      ${
-        arr
-          .slice(0,5)
-          .map(
-            (u,i)=>`
-
-              <div class="rank-item">
-
-                <span class="rank-no">
-                  ${i+1}
-                </span>
-
-                <span class="rank-name">
-                  ${esc(u.username)}
-                </span>
-
-                <span class="rank-value">
-                  ${esc(
-                    String(u[key])
-                  )}
-                </span>
-
-              </div>
-
-            `
-          )
-          .join("")
-      }
-
-    </div>
-  `;
-
-  $("#app").innerHTML=
-    shell(`
-
-      <div class="section-title">
-        하니방 순위
-      </div>
-
-      <div class="section-sub">
-        포인트 · 레벨 · 게임 기록 TOP 5
-      </div>
-
-      <div class="rank-grid">
-
-        ${
-          make(
-            "💰 포인트 TOP 5",
-            d.rankings.points,
-            "points"
-          )
-        }
-
-        ${
-          make(
-            "🏆 레벨 TOP 5",
-            d.rankings.level,
-            "level"
-          )
-        }
-
-        ${
-          make(
-            "🎮 게임 TOP 5",
-            d.rankings.games,
-            "wins"
-          )
-        }
-
-      </div>
-
-
-      <div class="section-title">
-        게임별 순위
-      </div>
-
-
-      <div class="rank-grid">
-
-        ${
-          Object.values(GAMES)
-            .map(
-              g=>`
-
-                <div class="card rank-card">
-
-                  <h4>
-                    ${g.icon}
-                    ${g.name}
-                    TOP 5
-                  </h4>
-
-                  <div
-                    class="center muted"
-                    style="padding:25px 0"
-                  >
-                    아직 순위가 없습니다.
-                    <br>
-                    첫 기록을 만들어 보세요!
-                  </div>
-
-                </div>
-
-              `
-            )
-            .join("")
-        }
-
-      </div>
-
-    `);
-}
-
-
-/* =========================================================
-   NEWS
-========================================================= */
-
-function newsItems(){
-
-  return [
-    "새로운 하니게임즈 시즌이 시작되었습니다.",
-    "지뢰찾기와 사천성 게임 시스템이 업데이트되었습니다.",
-    "하니의 진화 단계가 확장되었습니다.",
-    "오늘의 첫 게임 기록을 남겨보세요.",
-    "새로운 게임방이 열렸습니다."
-  ];
-}
-
-function newsRow(
-  t,
-  i
-){
-
-  return `
-    <div class="news-item">
-
-      <b>
-        ${i%2?"🟡":"🟢"}
-        ${esc(t)}
-      </b>
-
-      <div class="news-time">
-        10. 7. 오후 04:44
-      </div>
-
-    </div>
-  `;
-}
-
-async function news(){
-
-  $("#app").innerHTML=
-    shell(`
-
-      <div class="section-title">
-        하니게임즈 소식
-      </div>
-
-      <div class="section-sub">
-        새 소식이 생기면
-        오래된 소식부터 정리됩니다.
-      </div>
-
-      <div class="card news">
-
-        ${
-          newsItems()
-            .concat(newsItems())
-            .slice(0,10)
-            .map(newsRow)
-            .join("")
-        }
-
-      </div>
-
-    `);
-}
-
-
-/* =========================================================
-   PROFILE
-========================================================= */
-
-async function profile(){
-
-  const u=S.user;
-
-  $("#app").innerHTML=
-    shell(`
-
-      <div class="section-title">
-        내 기록
-      </div>
-
-      <div
-        class="card"
-        style="padding:20px"
-      >
-
-        <div
-          class="center"
-          style="font-size:70px"
-        >
-          ${bunny(u.evolution)}
-        </div>
-
-        <h2 class="center">
-          ${esc(u.username)}
-        </h2>
-
-        <p class="center muted">
-          ${esc(u.title)}
-          ·
-          ${u.evolution+1}세대
-        </p>
-
-
-        <div class="stats">
-
-          <div class="stat">
-            <small>승리</small>
-            <strong>${u.wins}</strong>
-          </div>
-
-          <div class="stat">
-            <small>패배</small>
-            <strong>${u.losses}</strong>
-          </div>
-
-          <div class="stat">
-            <small>포인트</small>
-            <strong>
-              ${u.points.toLocaleString()}
-            </strong>
-          </div>
-
-          <div class="stat">
-            <small>진화</small>
-            <strong>
-              ${u.evolution}단계
-            </strong>
-          </div>
-
-        </div>
-
-      </div>
-
-
-      <div class="section-title">
-        계정
-      </div>
-
-      <button
-        class="secondary full"
-        onclick="logout()"
-      >
-        로그아웃
-      </button>
-
-    `);
-}
-
-
-/* =========================================================
-   MODAL
-========================================================= */
-
-function openModal(
-  type
-){
-
-  S.modal={
-    type
-  };
-
-  renderModal();
-}
-
-function closeModal(){
-
-  S.modal=null;
-
-  $(".modal")?.remove();
-}
-
-function renderModal(){
-
-  if(!S.modal)
-    return;
-
-  if(
-    S.modal.type==="profile"
-  ){
-
-    S.modal=null;
-
-    return;
-  }
-
-  const g=
-    GAMES[
-      S.modal.game
-    ];
-
-  $("#app")
-    .insertAdjacentHTML(
-      "beforeend",
-      `
-
-      <div
-        class="modal"
-        onclick="
-          if(event.target===this)
-            closeModal()
-        "
-      >
-
-        <div class="sheet">
-
-          <div class="sheet-head">
-
-            <h2>
-              ${
-                g
-                ?g.icon+" "+g.name
-                :"게임방"
-              }
-            </h2>
-
-            <button
-              class="close"
-              onclick="closeModal()"
-            >
-              ×
-            </button>
-
-          </div>
-
-          <p class="muted">
-            방 코드:
-            ${S.modal.code}
-          </p>
-
-          <button
-            class="primary full"
-            onclick="
-              closeModal();
-              startGame('${S.modal.game}')
-            "
-          >
-            혼자 연습하기
-          </button>
-
-        </div>
-
-      </div>
-
-      `
-    );
-}
-
-function startGame(
-  type
-){
-
-  S.modal=null;
-
-  S.game={
-    type
-  };
-
-  if(type==="minesweeper")
-    minesweeper();
-
-  if(type==="shisen")
-    shisen();
-
-  if(type==="omok")
-    omok();
-
-  if(type==="tetris")
-    tetris();
-}
-
-function gamePage(
-  title,
-  content,
-  extra=""
-){
-
-  return `
-    <div class="game-shell">
-
-      <div class="game-head">
-
-        <button
-          class="secondary"
-          onclick="go('games')"
-        >
-          ← 게임목록
-        </button>
-
-        <div class="tag">
-          ${title}
-        </div>
-
-      </div>
-
-      ${extra}
-
-      ${content}
-
-    </div>
-  `;
-}
-
-
-/* =========================================================
-   MINESWEEPER
-========================================================= */
-
-function minesweeper(){
-
-  const N=10;
-  const M=12;
-
-  let board=
-    Array.from(
-      {length:N},
-      ()=>Array(M).fill(0)
-    );
-
-  let open=
-    Array.from(
-      {length:N},
-      ()=>Array(M).fill(false)
-    );
-
-  let flag=
-    Array.from(
-      {length:N},
-      ()=>Array(M).fill(false)
-    );
-
-  let done=false;
-  let msMode="open";
-  let pressTimer=null;
-  let longPressed=false;
-
-  let mines=[];
-
-  while(
-    mines.length<15
-  ){
-
-    let p=
-      Math.floor(
-        Math.random()*N*M
-      );
-
-    if(
-      !mines.includes(p)
-    )
-      mines.push(p);
-  }
-
-  mines.forEach(
-    p=>
-      board[
-        Math.floor(p/M)
-      ][
-        p%M
-      ]=-1
-  );
-
-  for(
-    let r=0;
-    r<N;
-    r++
-  )
-
-    for(
-      let c=0;
-      c<M;
-      c++
-    )
-
-      if(
-        board[r][c]!==-1
-      )
-
-        board[r][c]=
-          near(r,c)
-            .filter(
-              ([a,b])=>
-                board[a][b]===-1
-            )
-            .length;
-
-
-  function near(
-    r,
-    c
-  ){
-
-    let a=[];
-
-    for(
-      let dr=-1;
-      dr<=1;
-      dr++
-    )
-
-      for(
-        let dc=-1;
-        dc<=1;
-        dc++
-      ){
-
-        let rr=r+dr;
-        let cc=c+dc;
-
-        if(
-          rr>=0&&
-          rr<N&&
-          cc>=0&&
-          cc<M
-        )
-          a.push([
-            rr,
-            cc
-          ]);
-      }
-
-    return a;
-  }
-
-
-  function reveal(
-    r,
-    c
-  ){
-
-    if(
-      done||
-      flag[r][c]||
-      open[r][c]
-    )
-      return;
-
-    open[r][c]=true;
-
-    if(
-      board[r][c]===-1
-    ){
-
-      done=true;
-
-      alert(
-        "💥 지뢰를 밟았어요!"
-      );
-
-      return renderBoard();
-    }
-
-    if(
-      board[r][c]===0
-    )
-
-      near(r,c)
-        .forEach(
-          ([rr,cc])=>
-            reveal(rr,cc)
-        );
-
-    if(
-      open
-        .flat()
-        .filter(Boolean)
-        .length
-      ===
-      N*M-mines.length
-    ){
-
-      done=true;
-
-      alert(
-        "🎉 지뢰찾기 클리어!"
-      );
-    }
-
-    renderBoard();
-  }
-
-
-  function toggleFlag(
-    r,
-    c
-  ){
-
-    if(
-      done||
-      open[r][c]
-    )
-      return;
-
-    flag[r][c]=
-      !flag[r][c];
-
-    renderBoard();
-  }
-
-  function tap(
-    r,
-    c
-  ){
-    if(msMode==="flag")
-      toggleFlag(r,c);
-    else
-      reveal(r,c);
-  }
-
-  function startPress(
-    event,
-    r,
-    c
-  ){
-    if(done) return;
-
-    longPressed=false;
-    clearTimeout(pressTimer);
-
-    pressTimer=setTimeout(()=>{
-      longPressed=true;
-      toggleFlag(r,c);
-      if(event){
-        event.preventDefault();
-      }
-    },450);
-  }
-
-  function endPress(
-    event,
-    r,
-    c
-  ){
-    clearTimeout(pressTimer);
-    pressTimer=null;
-
-    if(longPressed){
-      longPressed=false;
-      if(event)
-        event.preventDefault();
-      return;
-    }
-
-    if(
-      event &&
-      event.type==="pointerup" &&
-      event.pointerType==="mouse" &&
-      event.button===2
-    ){
-      event.preventDefault();
-      toggleFlag(r,c);
-    }
-  }
-
-
-  function renderBoard(){
-
-    const cells=[];
-
-    for(
-      let r=0;
-      r<N;
-      r++
-    )
-
-      for(
-        let c=0;
-        c<M;
-        c++
-      ){
-
-        let v=
-          board[r][c];
-
-        cells.push(`
-          <button
-            class="
-              ms-cell
-              ${open[r][c]?"open":""}
-              ${flag[r][c]?"flag":""}
-            "
-            style="
-              min-width:0;
-              width:100%;
-              aspect-ratio:1;
-              padding:0;
-              touch-action:none;
-              font-size:clamp(11px,4.2vw,20px);
-            "
-            onclick="
-              MS.tap(${r},${c})
-            "
-            onpointerdown="
-              MS.startPress(event,${r},${c})
-            "
-            onpointerup="
-              MS.endPress(event,${r},${c})
-            "
-            onpointercancel="
-              MS.endPress(event,${r},${c})
-            "
-            oncontextmenu="
-              event.preventDefault();
-              MS.flag(${r},${c})
-            "
-          >
-            ${
-              flag[r][c]
-              ?"🚩"
-              :open[r][c]
-                ?(
-                  v===-1
-                  ?"💣"
-                  :v||""
-                )
-                :""
-            }
-          </button>
-        `);
-      }
-
-    $("#app").innerHTML=
-      gamePage(
-        "💣 지뢰찾기",
-
-        `
-          <div
-            class="card"
-            style="
-              padding:clamp(6px,2vw,12px);
-              width:100%;
-              max-width:520px;
-              margin:0 auto;
-              box-sizing:border-box;
-              overflow:hidden;
-            "
-          >
-
-            <div
-              class="ms-board"
-              style="
-                width:100%;
-                max-width:100%;
-                box-sizing:border-box;
-                display:grid;
-                grid-template-columns:repeat(${M},minmax(0,1fr));
-                gap:2px;
-                overflow:hidden;
-              "
-            >
-              ${cells.join("")}
-            </div>
-
-          </div>
-
-          <div
-            class="ms-controls"
-            style="
-              display:grid;
-              grid-template-columns:1fr 1fr;
-              gap:8px;
-              margin:10px auto 0;
-              max-width:520px;
-            "
-          >
-            <button
-              class="${msMode==="open"?"primary":"secondary"}"
-              onclick="MS.mode('open')"
-            >
-              👆 열기
-            </button>
-
-            <button
-              class="${msMode==="flag"?"primary":"secondary"}"
-              onclick="MS.mode('flag')"
-            >
-              🚩 깃발
-            </button>
-          </div>
-
-          <p class="muted center" style="margin-top:9px">
-            모바일: <b>열기 / 깃발</b> 버튼 사용 ·
-            길게 누르면 깃발
-          </p>
-        `
-      );
-  }
-
-  window.MS={
-    reveal,
-    tap,
-    toggle:toggleFlag,
-    flag:toggleFlag,
-    mode(m){
-      msMode=m==="flag"?"flag":"open";
-      renderBoard();
-    },
-    startPress,
-    endPress
-  };
-
-  renderBoard();
-}
-
-
-/* =========================================================
-   SHISEN
-========================================================= */
-
-function shisen(){
-
-  const R=8;
-  const C=8;
-
-  const tiles=[
-    "🍎","🍋","🍇","🍒",
-    "🥝","🍉","🍑","🍓",
-    "🍊","🍍","🥕","🌽",
-    "🍀","⭐","🐰","🦊",
-    "🐼","🐸","🐯","🐨",
-    "🐹","🐵","🐶","🐱",
-    "🦄","🐥","🦋","🌸",
-    "💎","🎈","🎀","🍉"
-  ];
-
-  let vals=[];
-
-  let alive=
-    Array(R*C).fill(true);
-
-  let selected=null;
-
-  let drawPath=null;
-
-  let busy=false;
-
-  let hintTimer=null;
-
-
-  const dirs=[
-    [1,0],
-    [-1,0],
-    [0,1],
-    [0,-1]
-  ];
-
-
-  const id=(
-    r,
-    c
-  )=>
-    r*C+c;
-
-
-  function shuffle(
-    arr
-  ){
-
-    return arr
-      .slice()
-      .sort(
-        ()=>Math.random()-.5
-      );
-
-  }
-
-
-  function makeValues(){
-
-    const pool=[];
-
-    /*
-      32종 × 2개 = 64칸
-    */
-
-    for(
-      let i=0;
-      i<32;
-      i++
-    ){
-
-      pool.push(
-        tiles[i]
-      );
-
-      pool.push(
-        tiles[i]
-      );
-
-    }
-
-    return shuffle(
-      pool
-    );
-
-  }
-
-
-  /* =========================================================
-     사천성 핵심 경로 탐색
-
-     실제 보드 바깥에 한 칸의 빈 공간이 있다고 생각한다.
-
-       ┌─────────────────┐
-       │   바깥 빈 공간   │
-       │ ┌─────────────┐ │
-       │ │   타일판    │ │
-       │ └─────────────┘ │
-       └─────────────────┘
-
-     따라서 타일 → 바깥 → 타일 경로도 가능하다.
-
-     방향이 바뀔 때마다 꺾임 +1
-     최대 2회전까지만 허용한다.
-  ========================================================= */
-
-  function findPath(
-    a,
-    b
-  ){
-
-    const H=
-      R+2;
-
-    const W=
-      C+2;
-
-    /*
-      실제 타일 좌표 +1
-
-      예:
-      실제 0,0
-      → 패딩 1,1
-
-      패딩 0과 9는
-      보드 바깥 공간이다.
-    */
-
-    const sr=
-      a.r+1;
-
-    const sc=
-      a.c+1;
-
-    const tr=
-      b.r+1;
-
-    const tc=
-      b.c+1;
-
-
-    /*
-      상태:
-      row
-      col
-      direction
-      turns
-    */
-
-    const queue=[
-      [
-        sr,
-        sc,
-        -1,
-        0
-      ]
-    ];
-
-    let head=0;
-
-
-    const seen=
-      new Set();
-
-
-    seen.add(
-      `${sr},${sc},-1,0`
-    );
-
-
-    const parent=
-      new Map();
-
-
-    function stateKey(
-      r,
-      c,
-      d,
-      t
-    ){
-
-      return (
-        `${r},${c},${d},${t}`
-      );
-
-    }
-
-
-    while(
-      head<queue.length
-    ){
-
-      const [
-        r,
-        c,
-        direction,
-        turns
-      ]=
-        queue[head++];
-
-
-      for(
-        let nd=0;
-        nd<4;
-        nd++
-      ){
-
-        /*
-          처음 이동은
-          꺾임 0회.
-
-          방향이 바뀌면
-          꺾임 +1.
-        */
-
-        const nextTurns=
-          direction===-1 ||
-          direction===nd
-          ?turns
-          :turns+1;
-
-
-        if(
-          nextTurns>2
-        )
-          continue;
-
-
-        let nr=
-          r+
-          dirs[nd][0];
-
-        let nc=
-          c+
-          dirs[nd][1];
-
-
-        /*
-          같은 방향으로
-          가능한 만큼 직진한다.
-        */
-
-        while(
-          nr>=0 &&
-          nr<H &&
-          nc>=0 &&
-          nc<W
-        ){
-
-          /*
-            목적지 도착
-          */
-
-          if(
-            nr===tr &&
-            nc===tc
-          ){
-
-            const targetKey=
-              stateKey(
-                nr,
-                nc,
-                nd,
-                nextTurns
-              );
-
-
-            parent.set(
-              targetKey,
-              stateKey(
-                r,
-                c,
-                direction,
-                turns
-              )
-            );
-
-
-            /*
-              경로 복원
-            */
-
-            const path=[];
-
-            let current=
-              targetKey;
-
-
-            while(
-              current
-            ){
-
-              const parts=
-                current
-                  .split(",")
-                  .map(Number);
-
-
-              /*
-                패딩 좌표를
-                실제 선 좌표용으로 변환
-
-                1 → 0
-                0 → -1
-              */
-
-              path.push({
-                r:
-                  parts[0]-1,
-
-                c:
-                  parts[1]-1
-              });
-
-
-              current=
-                parent.get(
-                  current
-                )||null;
-
-            }
-
-
-            path.reverse();
-
-            return path;
-
-          }
-
-
-          /*
-            보드 안쪽의
-            살아있는 타일은
-            통과할 수 없다.
-          */
-
-          if(
-            nr>=1 &&
-            nr<=R &&
-            nc>=1 &&
-            nc<=C
-          ){
-
-            const rr=
-              nr-1;
-
-            const cc=
-              nc-1;
-
-
-            if(
-              alive[
-                id(rr,cc)
-              ]
-            ){
-
-              break;
-
-            }
-
-          }
-
-
-          const k=
-            stateKey(
-              nr,
-              nc,
-              nd,
-              nextTurns
-            );
-
-
-          if(
-            !seen.has(k)
-          ){
-
-            seen.add(k);
-
-
-            parent.set(
-              k,
-              stateKey(
-                r,
-                c,
-                direction,
-                turns
-              )
-            );
-
-
-            queue.push([
-              nr,
-              nc,
-              nd,
-              nextTurns
-            ]);
-
-          }
-
-
-          nr+=
-            dirs[nd][0];
-
-          nc+=
-            dirs[nd][1];
-
-        }
-
-      }
-
-    }
-
-
-    return null;
-
-  }
-
-
-  /* =========================================================
-     현재 판에서 가능한 조합 찾기
-  ========================================================= */
-
-  function anyMove(){
-
-    const groups={};
-
-
-    for(
-      let r=0;
-      r<R;
-      r++
-    ){
-
-      for(
-        let c=0;
-        c<C;
-        c++
-      ){
-
-        if(
-          !alive[
-            id(r,c)
-          ]
-        )
-          continue;
-
-
-        const value=
-          vals[
-            id(r,c)
-          ];
-
-
-        if(
-          !groups[value]
-        )
-          groups[value]=[];
-
-
-        groups[value].push({
-          r,
-          c
-        });
-
-      }
-
-    }
-
-
-    for(
-      const list
-      of Object.values(groups)
-    ){
-
-      for(
-        let i=0;
-        i<list.length;
-        i++
-      ){
-
-        for(
-          let j=i+1;
-          j<list.length;
-          j++
-        ){
-
-          const path=
-            findPath(
-              list[i],
-              list[j]
-            );
-
-
-          if(path){
-
-            return {
-              a:list[i],
-              b:list[j],
-              path
-            };
-
-          }
-
-        }
-
-      }
-
-    }
-
-
-    return null;
-
-  }
-
-
-  /* =========================================================
-     새 판 생성
-
-     처음부터 최소 한 쌍은
-     연결 가능하도록 만든다.
-  ========================================================= */
-
-  function newBoard(){
-
-    for(
-      let n=0;
-      n<300;
-      n++
-    ){
-
-      vals=
-        makeValues();
-
-      alive=
-        Array(R*C)
-          .fill(true);
-
-
-      if(
-        anyMove()
-      ){
-
-        return;
-
-      }
-
-    }
-
-
-    /*
-      극히 드물게 반복 실패하면
-      마지막 랜덤판 사용
-    */
-
-    vals=
-      makeValues();
-
-    alive=
-      Array(R*C)
-        .fill(true);
-
-  }
-
-
-  /* =========================================================
-     남은 타일 셔플
-
-     셔플 후에도 가능한 수가 있도록 만든다.
-  ========================================================= */
-
-  function shuffleRemaining(){
-
-    const positions=[];
-    const items=[];
-
-
-    for(
-      let r=0;
-      r<R;
-      r++
-    ){
-
-      for(
-        let c=0;
-        c<C;
-        c++
-      ){
-
-        if(
-          alive[
-            id(r,c)
-          ]
-        ){
-
-          positions.push(
-            id(r,c)
-          );
-
-          items.push(
-            vals[
-              id(r,c)
-            ]
-          );
-
-        }
-
-      }
-
-    }
-
-
-    for(
-      let n=0;
-      n<500;
-      n++
-    ){
-
-      const mixed=
-        shuffle(
-          items
-        );
-
-
-      positions.forEach(
-        (
-          p,
-          i
-        )=>{
-
-          vals[p]=
-            mixed[i];
-
-        }
-      );
-
-
-      if(
-        anyMove()
-      ){
-
-        return true;
-
-      }
-
-    }
-
-
-    return false;
-
-  }
-
-
-  /* =========================================================
-     경로 → SVG 좌표
-  ========================================================= */
-
-  function pathToPoints(
-    path
-  ){
-
-    return path
-      .map(
-        p=>
-          `${p.c+.5},${p.r+.5}`
-      )
-      .join(" ");
-
-  }
-
-
-  /* =========================================================
-     타일 클릭
-  ========================================================= */
-
-  function click(
-    r,
-    c
-  ){
-
-    if(
-      busy
-    )
-      return;
-
-
-    if(
-      !alive[
-        id(r,c)
-      ]
-    )
-      return;
-
-
-    /*
-      첫 번째 선택
-    */
-
-    if(
-      !selected
-    ){
-
-      selected={
-        r,
-        c
-      };
-
-      render();
-
-      return;
-
-    }
-
-
-    /*
-      같은 타일을
-      다시 누르면 선택 해제
-    */
-
-    if(
-      selected.r===r &&
-      selected.c===c
-    ){
-
-      selected=null;
-
-      render();
-
-      return;
-
-    }
-
-
-    const a={
-      ...selected
-    };
-
-    const b={
-      r,
-      c
-    };
-
-
-    /*
-      그림이 같은지 확인
-    */
-
-    if(
-      vals[
-        id(a.r,a.c)
-      ]
-      ===
-      vals[
-        id(b.r,b.c)
-      ]
-    ){
-
-      const path=
-        findPath(
-          a,
-          b
-        );
-
-
-      /*
-        실제 연결 가능
-      */
-
-      if(path){
-
-        busy=true;
-
-        selected=null;
-
-        drawPath=
-          path;
-
-        render();
-
-
-        /*
-          선을 보여준 뒤
-          타일 제거
-        */
-
-        setTimeout(
-          ()=>{
-
-            alive[
-              id(a.r,a.c)
-            ]=false;
-
-
-            alive[
-              id(b.r,b.c)
-            ]=false;
-
-
-            drawPath=null;
-
-            busy=false;
-
-            render();
-
-
-            /*
-              전부 제거
-            */
-
-            if(
-              alive.every(
-                v=>!v
-              )
-            ){
-
-              setTimeout(
-                ()=>{
-                  alert(
-                    "🎉 사천성 클리어!"
-                  );
-                },
-                50
-              );
-
-              return;
-
-            }
-
-
-            /*
-              더 이상 가능한 수가 없으면
-              자동 셔플
-            */
-
-            if(
-              !anyMove()
-            ){
-
-              if(
-                shuffleRemaining()
-              ){
-
-                toast(
-                  "🔀 더 이상 연결할 수 없어 자동으로 셔플했어요!"
-                );
-
-                render();
-
-              }
-
-            }
-
-          },
-          420
-        );
-
-
-        return;
-
-      }
-
-    }
-
-
-    /*
-      연결할 수 없으면
-      방금 누른 타일을 새 선택으로
-    */
-
-    selected={
-      r,
-      c
-    };
-
-    render();
-
-  }
-
-
-  /* =========================================================
-     힌트
-  ========================================================= */
-
-  function hint(){
-
-    if(
-      busy
-    )
-      return;
-
-
-    const move=
-      anyMove();
-
-
-    /*
-      가능한 수가 없으면
-      자동 셔플
-    */
-
-    if(
-      !move
-    ){
-
-      if(
-        shuffleRemaining()
-      ){
-
-        toast(
-          "🔀 가능한 수가 없어 셔플했어요!"
-        );
-
-        render();
-
-      }
-
-      return;
-
-    }
-
-
-    selected=
-      move.a;
-
-    drawPath=
-      move.path;
-
-
-    render();
-
-
-    clearTimeout(
-      hintTimer
-    );
-
-
-    hintTimer=
-      setTimeout(
-        ()=>{
-
-          drawPath=null;
-
-          render();
-
-        },
-        1000
-      );
-
-  }
-
-
-  /* =========================================================
-     수동 셔플
-  ========================================================= */
-
-  function shuffleBoard(){
-
-    if(
-      busy
-    )
-      return;
-
-
-    if(
-      shuffleRemaining()
-    ){
-
-      selected=null;
-
-      drawPath=null;
-
-
-      toast(
-        "🔀 남은 타일을 섞었어요!"
-      );
-
-
-      render();
-
-    }
-
-  }
-
-
-  /* =========================================================
-     화면 렌더
-  ========================================================= */
-
   function render(){
 
     const cells=[];
 
+    for(let r=0;r<R;r++){
 
-    for(
-      let r=0;
-      r<R;
-      r++
-    ){
+      for(let c=0;c<C;c++){
 
-      for(
-        let c=0;
-        c<C;
-        c++
-      ){
+        const p=id(r,c);
 
         cells.push(`
-
           <button
             class="
               shisen-cell
-              ${
-                selected &&
-                selected.r===r &&
-                selected.c===c
-                ?"selected"
-                :""
-              }
+              ${alive[p]?"":"removed"}
+              ${selected&&selected.r===r&&selected.c===c?"selected":""}
             "
-            style="
-              min-width:0;
-              width:100%;
-              aspect-ratio:1;
-
-              padding:0;
-              margin:0;
-
-              box-sizing:border-box;
-
-              overflow:hidden;
-
-              display:flex;
-              align-items:center;
-              justify-content:center;
-
-              font-size:
-                clamp(
-                  12px,
-                  5.5vw,
-                  30px
-                );
-
-              line-height:1;
-
-              touch-action:manipulation;
-            "
-            onclick="
-              SH.click(
-                ${r},
-                ${c}
-              )
-            "
+            data-r="${r}"
+            data-c="${c}"
+            ${alive[p]?"":"disabled"}
           >
-
-            ${
-              alive[
-                id(r,c)
-              ]
-              ?vals[
-                id(r,c)
-              ]
-              :""
-            }
-
+            ${alive[p]?vals[p]:""}
           </button>
-
         `);
-
       }
-
     }
-
-
-    /*
-      연결선
-
-      보드 바깥 경로까지 표시할 수 있도록
-      SVG 영역을 보드보다 조금 크게 만든다.
-    */
-
-    const line=
-      drawPath
-      ?`
-
-        <svg
-          viewBox="-1 -1 10 10"
-          preserveAspectRatio="none"
-          style="
-            position:absolute;
-            inset:-10px;
-
-            width:
-              calc(100% + 20px);
-
-            height:
-              calc(100% + 20px);
-
-            overflow:visible;
-
-            z-index:20;
-
-            pointer-events:none;
-          "
-        >
-
-          <polyline
-            points="
-              ${pathToPoints(drawPath)}
-            "
-            fill="none"
-            stroke="#7b61d8"
-            stroke-width=".16"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-
-        </svg>
-
-      `
-      :"";
-
-
-    const remaining=
-      alive.filter(
-        Boolean
-      ).length;
-
 
     $("#app").innerHTML=
       gamePage(
         "🀄 사천성",
 
         `
-
           <div
             class="card"
             style="
-              padding:
-                clamp(
-                  6px,
-                  2vw,
-                  10px
-                );
-
-              width:100%;
-
-              max-width:520px;
-
+              width:min(760px,96vw);
+              max-width:760px;
               margin:0 auto;
-
+              padding:clamp(8px,2vw,14px);
               box-sizing:border-box;
-
-              overflow:visible;
+              overflow:hidden;
             "
           >
 
             <div
               style="
                 position:relative;
-
                 width:100%;
-
-                overflow:visible;
               "
             >
 
               <div
                 class="shisen-board"
+                id="shisenBoard"
                 style="
-                  position:relative;
-
-                  z-index:1;
-
                   width:100%;
-
                   display:grid;
-
-                  grid-template-columns:
-                    repeat(
-                      ${C},
-                      minmax(0,1fr)
-                    );
-
-                  gap:
-                    clamp(
-                      2px,
-                      .8vw,
-                      5px
-                    );
-
-                  overflow:visible;
+                  grid-template-columns:repeat(${C},minmax(0,1fr));
+                  gap:clamp(3px,.7vw,7px);
+                  position:relative;
                 "
               >
-
                 ${cells.join("")}
 
-              </div>
+                ${
+                  drawPath
+                  ?`
+                    <svg
+                      class="shisen-line"
+                      viewBox="0 0 ${C} ${R}"
+                      preserveAspectRatio="none"
+                      style="
+                        position:absolute;
+                        inset:0;
+                        width:100%;
+                        height:100%;
+                        pointer-events:none;
+                        z-index:5;
+                        overflow:visible;
+                      "
+                    >
+                      <polyline
+                        points="${pathToPoints(drawPath)}"
+                        fill="none"
+                        stroke="#5b9fd8"
+                        stroke-width=".10"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  `
+                  :""
+                }
 
-              ${line}
+              </div>
 
             </div>
 
@@ -3098,35 +1102,24 @@ function shisen(){
 
           <div
             style="
-              display:grid;
-
-              grid-template-columns:
-                1fr 1fr;
-
+              display:flex;
               gap:8px;
-
-              margin:
-                10px auto 0;
-
-              max-width:520px;
+              justify-content:center;
+              margin:10px auto 0;
+              width:min(760px,96vw);
             "
           >
 
             <button
               class="secondary"
-              onclick="
-                SH.hint()
-              "
+              id="shisenHint"
             >
               💡 힌트
             </button>
 
-
             <button
-              class="secondary"
-              onclick="
-                SH.shuffle()
-              "
+              class="primary"
+              id="shisenShuffle"
             >
               🔀 셔플
             </button>
@@ -3134,59 +1127,59 @@ function shisen(){
           </div>
 
 
-          <div
-            class="card"
-            style="
-              padding:10px;
-              margin-top:10px;
-              text-align:center;
-            "
-          >
-
-            <b>
-              남은 타일
-              ${remaining}개
-            </b>
-
-          </div>
-
-
           <p
-            class="muted center"
-            style="
-              margin-top:9px;
-              line-height:1.65;
-            "
+            class="center muted"
+            style="margin-top:9px"
           >
-
             같은 타일을 선택하고
-            빈 공간을 가로·세로로
-            <b>최대 2번</b> 꺾어 연결하세요.
-
-            <br>
-
-            보드 바깥쪽 빈 공간으로
-            돌아가는 경로도 가능합니다.
-
+            <b>최대 두 번 꺾이는 길</b>로 연결하면 제거됩니다.
           </p>
-
         `
       );
 
+
+    document
+      .querySelectorAll(
+        ".shisen-cell:not([disabled])"
+      )
+      .forEach(
+        el=>{
+          el.addEventListener(
+            "click",
+            ()=>{
+              click(
+                Number(el.dataset.r),
+                Number(el.dataset.c)
+              );
+            }
+          );
+        }
+      );
+
+
+    document
+      .querySelector(
+        "#shisenHint"
+      )
+      ?.addEventListener(
+        "click",
+        hint
+      );
+
+
+    document
+      .querySelector(
+        "#shisenShuffle"
+      )
+      ?.addEventListener(
+        "click",
+        shuffleBoard
+      );
   }
 
 
-  window.SH={
-    click,
-    hint,
-    shuffle:shuffleBoard
-  };
-
-
   newBoard();
-
   render();
-
 }
 
 
@@ -3198,7 +1191,7 @@ function omok(){
 
   const N=15;
 
-  const b=
+  let board=
     Array.from(
       {length:N},
       ()=>Array(N).fill(0)
@@ -3208,53 +1201,76 @@ function omok(){
   let over=false;
 
 
-  function win(
+  function check(
     r,
     c
   ){
+
+    const v=
+      board[r][c];
+
+    const ds=[
+      [1,0],
+      [0,1],
+      [1,1],
+      [1,-1]
+    ];
 
     for(
       const [
         dr,
         dc
       ]
-      of [
-        [1,0],
-        [0,1],
-        [1,1],
-        [1,-1]
-      ]
+      of ds
     ){
 
-      let n=1;
+      let count=1;
 
       for(
-        const s
-        of [1,-1]
+        let k=1;
+        k<5;
+        k++
       ){
 
-        let rr=
-          r+dr*s;
+        const rr=r+dr*k;
+        const cc=c+dc*k;
 
-        let cc=
-          c+dc*s;
-
-        while(
+        if(
           rr>=0&&
           rr<N&&
           cc>=0&&
           cc<N&&
-          b[rr][cc]===turn
-        ){
-
-          n++;
-
-          rr+=dr*s;
-          cc+=dc*s;
-        }
+          board[rr][cc]===v
+        )
+          count++;
+        else
+          break;
       }
 
-      if(n>=5)
+
+      for(
+        let k=1;
+        k<5;
+        k++
+      ){
+
+        const rr=r-dr*k;
+        const cc=c-dc*k;
+
+        if(
+          rr>=0&&
+          rr<N&&
+          cc>=0&&
+          cc<N&&
+          board[rr][cc]===v
+        )
+          count++;
+        else
+          break;
+      }
+
+
+      if(count>=5)
         return true;
     }
 
@@ -3262,32 +1278,29 @@ function omok(){
   }
 
 
-  function put(
+  function play(
     r,
     c
   ){
 
     if(
       over||
-      b[r][c]
+      board[r][c]
     )
       return;
 
-    b[r][c]=turn;
+    board[r][c]=turn;
 
     if(
-      win(r,c)
+      check(r,c)
     ){
 
       over=true;
 
       alert(
-        (
-          turn===1
-          ?"⚫"
-          :"⚪"
-        )+
-        " 승리!"
+        turn===1
+        ?"⚫ 흑돌 승리!"
+        :"⚪ 백돌 승리!"
       );
     }
 
@@ -3314,33 +1327,42 @@ function omok(){
         let c=0;
         c<N;
         c++
-      )
+      ){
 
         cells.push(`
           <button
-            class="omok-cell"
+            class="
+              omok-cell
+              ${
+                board[r][c]===1
+                ?"black"
+                :""
+              }
+              ${
+                board[r][c]===2
+                ?"white"
+                :""
+              }
+            "
             onclick="
-              OM.put(${r},${c})
+              OMOK.play(
+                ${r},
+                ${c}
+              )
             "
           >
             ${
-              b[r][c]
-              ?`
-                <i
-                  class="
-                    stone
-                    ${
-                      b[r][c]===1
-                      ?"black"
-                      :"white"
-                    }
-                  "
-                ></i>
-              `
+              board[r][c]
+              ?(
+                board[r][c]===1
+                ?"●"
+                :"○"
+              )
               :""
             }
           </button>
         `);
+      }
 
 
     $("#app").innerHTML=
@@ -3348,31 +1370,45 @@ function omok(){
         "⚫ 오목",
 
         `
-          <div
-            class="card"
-            style="padding:8px"
-          >
+          <div class="card">
 
-            <div class="omok-board">
+            <div
+              class="omok-info"
+            >
+
+              <b>
+                ${
+                  over
+                  ?"게임 종료"
+                  :(
+                    turn===1
+                    ?"⚫ 흑돌 차례"
+                    :"⚪ 백돌 차례"
+                  )
+                }
+              </b>
+
+            </div>
+
+            <div
+              class="omok-board"
+            >
               ${cells.join("")}
             </div>
 
           </div>
 
-          <p class="center">
-            현재 차례:
-            ${
-              turn===1
-              ?"⚫ 흑"
-              :"⚪ 백"
-            }
+          <p class="center muted">
+            15×15 바둑판에서
+            먼저 5개를 연결하세요.
           </p>
         `
       );
   }
 
-  window.OM={
-    put
+
+  window.OMOK={
+    play
   };
 
   render();
@@ -3388,15 +1424,6 @@ function tetris(){
   const W=10;
   const H=20;
 
-  let b=
-    Array.from(
-      {length:H},
-      ()=>Array(W).fill(0)
-    );
-
-  let score=0;
-  let over=false;
-
   const shapes=[
     [[1,1,1,1]],
     [[1,1],[1,1]],
@@ -3407,115 +1434,186 @@ function tetris(){
     [[0,1,1],[1,1,0]]
   ];
 
-  let p={
-    x:3,
-    y:0,
-    s:
-      shapes[
-        Math.floor(
-          Math.random()*shapes.length
-        )
-      ]
-  };
+  let board=
+    Array.from(
+      {length:H},
+      ()=>Array(W).fill(0)
+    );
+
+  let piece=null;
+  let px=3;
+  let py=0;
+  let score=0;
+  let lines=0;
+  let over=false;
 
 
-  function hit(
-    nx,
-    ny,
-    ns=p.s
+  function randomPiece(){
+
+    return shapes[
+      Math.floor(
+        Math.random()*shapes.length
+      )
+    ]
+    .map(
+      row=>row.slice()
+    );
+  }
+
+
+  function collision(
+    shape,
+    x,
+    y
   ){
 
     for(
-      let y=0;
-      y<ns.length;
-      y++
+      let r=0;
+      r<shape.length;
+      r++
     )
 
       for(
-        let x=0;
-        x<ns[y].length;
-        x++
+        let c=0;
+        c<shape[r].length;
+        c++
       )
 
         if(
-          ns[y][x]&&
-          (
-            ny+y>=H||
-            nx+x<0||
-            nx+x>=W||
-            b[ny+y][nx+x]
+          shape[r][c]
+        ){
+
+          const xx=x+c;
+          const yy=y+r;
+
+          if(
+            xx<0||
+            xx>=W||
+            yy>=H||
+            (
+              yy>=0&&
+              board[yy][xx]
+            )
           )
-        )
-          return true;
+            return true;
+        }
 
     return false;
   }
 
 
-  function lock(){
+  function spawn(){
 
-    p.s.forEach(
-      (row,y)=>
-        row.forEach(
-          (v,x)=>{
-
-            if(v)
-              b[
-                p.y+y
-              ][
-                p.x+x
-              ]=1;
-
-          }
-        )
-    );
-
-
-    for(
-      let y=H-1;
-      y>=0;
-      y--
-    )
-
-      if(
-        b[y].every(Boolean)
-      ){
-
-        b.splice(
-          y,
-          1
-        );
-
-        b.unshift(
-          Array(W).fill(0)
-        );
-
-        score+=100;
-
-        y++;
-      }
-
-
-    p={
-      x:3,
-      y:0,
-      s:
-        shapes[
-          Math.floor(
-            Math.random()*
-            shapes.length
-          )
-        ]
-    };
-
+    piece=randomPiece();
+    px=
+      Math.floor(
+        (W-piece[0].length)/2
+      );
+    py=0;
 
     if(
-      hit(
-        p.x,
-        p.y
+      collision(
+        piece,
+        px,
+        py
       )
     )
       over=true;
+  }
+
+
+  function merge(){
+
+    for(
+      let r=0;
+      r<piece.length;
+      r++
+    )
+
+      for(
+        let c=0;
+        c<piece[r].length;
+        c++
+      )
+
+        if(
+          piece[r][c]
+        ){
+
+          const yy=py+r;
+          const xx=px+c;
+
+          if(
+            yy>=0
+          )
+            board[yy][xx]=1;
+        }
+  }
+
+
+  function clearLines(){
+
+    let removed=0;
+
+    board=
+      board.filter(
+        row=>{
+
+          if(
+            row.every(Boolean)
+          ){
+
+            removed++;
+
+            return false;
+          }
+
+          return true;
+        }
+      );
+
+    while(
+      board.length<H
+    )
+      board.unshift(
+        Array(W).fill(0)
+      );
+
+    if(removed){
+
+      lines+=removed;
+
+      score+=
+        [0,100,300,500,800][
+          removed
+        ]||0;
+    }
+  }
+
+
+  function down(){
+
+    if(over)
+      return;
+
+    if(
+      !collision(
+        piece,
+        px,
+        py+1
+      )
+    ){
+
+      py++;
+
+    }else{
+
+      merge();
+      clearLines();
+      spawn();
+    }
+
+    render();
   }
 
 
@@ -3523,33 +1621,17 @@ function tetris(){
     dx
   ){
 
+    if(over)
+      return;
+
     if(
-      !hit(
-        p.x+dx,
-        p.y
+      !collision(
+        piece,
+        px+dx,
+        py
       )
     )
-      p.x+=dx;
-
-    render();
-  }
-
-
-  function down(){
-
-    if(
-      !hit(
-        p.x,
-        p.y+1
-      )
-    ){
-
-      p.y++;
-
-    }else{
-
-      lock();
-    }
+      px+=dx;
 
     render();
   }
@@ -3557,25 +1639,41 @@ function tetris(){
 
   function rotate(){
 
-    const ns=
-      p.s[0]
-        .map(
-          (_,i)=>
-            p.s
-              .map(
-                r=>r[i]
-              )
-              .reverse()
-        );
+    if(over)
+      return;
+
+    const h=piece.length;
+    const w=piece[0].length;
+
+    const next=
+      Array.from(
+        {length:w},
+        ()=>Array(h).fill(0)
+      );
+
+    for(
+      let r=0;
+      r<h;
+      r++
+    )
+
+      for(
+        let c=0;
+        c<w;
+        c++
+      )
+
+        next[c][h-1-r]=
+          piece[r][c];
 
     if(
-      !hit(
-        p.x,
-        p.y,
-        ns
+      !collision(
+        next,
+        px,
+        py
       )
     )
-      p.s=ns;
+      piece=next;
 
     render();
   }
@@ -3583,96 +1681,114 @@ function tetris(){
 
   function drop(){
 
+    if(over)
+      return;
+
     while(
-      !hit(
-        p.x,
-        p.y+1
+      !collision(
+        piece,
+        px,
+        py+1
       )
     )
-      p.y++;
+      py++;
 
-    lock();
-
-    render();
+    down();
   }
 
 
   function render(){
 
-    let a=
-      b.map(
-        r=>r.slice()
-      );
+    const cells=[];
 
+    for(
+      let r=0;
+      r<H;
+      r++
+    )
 
-    p.s.forEach(
-      (row,y)=>
-        row.forEach(
-          (v,x)=>{
+      for(
+        let c=0;
+        c<W;
+        c++
+      ){
 
-            if(
-              v&&
-              p.y+y<H&&
-              p.x+x<W
-            )
-              a[
-                p.y+y
-              ][
-                p.x+x
-              ]=1;
+        let active=false;
 
-          }
-        )
-    );
+        if(piece){
+
+          const rr=r-py;
+          const cc=c-px;
+
+          active=
+            rr>=0&&
+            rr<piece.length&&
+            cc>=0&&
+            cc<piece[rr].length&&
+            piece[rr][cc];
+        }
+
+        cells.push(`
+          <div
+            class="
+              tetris-cell
+              ${
+                board[r][c]||
+                active
+                ?"filled"
+                :""
+              }
+            "
+          ></div>
+        `);
+      }
 
 
     $("#app").innerHTML=
       gamePage(
-        "🧱 테트리스",
+        "🧱 싱글 테트리스",
 
         `
-          <div class="tetris-wrap">
+          <div
+            class="card"
+            style="
+              padding:12px;
+              max-width:520px;
+              margin:0 auto;
+            "
+          >
 
-            <div class="tetris-board">
+            <div
+              class="tetris-head"
+            >
 
-              ${
-                a.flat()
-                  .map(
-                    v=>`
-                      <div
-                        class="
-                          tcell
-                          ${v?"filled":""}
-                        "
-                      ></div>
-                    `
-                  )
-                  .join("")
-              }
+              <span>
+                점수
+                <b>
+                  ${score}
+                </b>
+              </span>
+
+              <span>
+                줄
+                <b>
+                  ${lines}
+                </b>
+              </span>
 
             </div>
 
 
-            <div class="tetris-side">
+            <div
+              class="tetris-board"
+            >
+              ${cells.join("")}
+            </div>
 
-              <div
-                class="card"
-                style="padding:12px"
-              >
 
-                <b>점수</b>
-
-                <strong
-                  style="
-                    font-size:24px;
-                    display:block
-                  "
-                >
-                  ${score}
-                </strong>
-
-              </div>
-
+            <div
+              class="tetris-controls"
+            >
 
               <button
                 class="primary"
@@ -3733,6 +1849,7 @@ function tetris(){
     drop
   };
 
+  spawn();
   render();
 
   clearInterval(
@@ -3852,3 +1969,6 @@ function toast(
   }
 
 })();
+async function createRoom(
+  game
+){
