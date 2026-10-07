@@ -1,131 +1,190 @@
-import { DurableObject } from 'cloudflare:workers';
+import { DurableObject } from "cloudflare:workers";
+
+const enc = new TextEncoder();
+const dec = new TextDecoder();
 
 function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8'
+  return new Response(
+    JSON.stringify(data),
+    {
+      status,
+      headers: {
+        "content-type":
+          "application/json; charset=utf-8",
+        "cache-control": "no-store"
+      }
     }
-  });
+  );
+}
+
+function decodeUserHeader(value) {
+  try {
+    return decodeURIComponent(value || "")
+      .trim()
+      .slice(0, 30);
+  } catch {
+    return "";
+  }
+}
+
+function base64url(bytes) {
+  let s = "";
+
+  for (const b of bytes) {
+    s += String.fromCharCode(b);
+  }
+
+  return btoa(s)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function fromBase64url(s) {
+  s = s
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+
+  while (s.length % 4) {
+    s += "=";
+  }
+
+  return Uint8Array.from(
+    atob(s),
+    c => c.charCodeAt(0)
+  );
 }
 
 async function hashPassword(password) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(password),
-    'PBKDF2',
-    false,
-    ['deriveBits']
-  );
-
   const salt =
     crypto.getRandomValues(
       new Uint8Array(16)
     );
 
+  const key =
+    await crypto.subtle.importKey(
+      "raw",
+      enc.encode(password),
+      {
+        name: "PBKDF2"
+      },
+      false,
+      ["deriveBits"]
+    );
+
   const bits =
     await crypto.subtle.deriveBits(
       {
-        name: 'PBKDF2',
+        name: "PBKDF2",
         salt,
         iterations: 100000,
-        hash: 'SHA-256'
+        hash: "SHA-256"
       },
       key,
       256
     );
 
   return (
-    [...salt]
-      .map(x =>
-        x.toString(16).padStart(2, '0')
-      )
-      .join('') +
-    ':' +
-    [...new Uint8Array(bits)]
-      .map(x =>
-        x.toString(16).padStart(2, '0')
-      )
-      .join('')
+    `${base64url(salt)}.` +
+    `${base64url(new Uint8Array(bits))}`
   );
 }
 
-async function verify(password, stored) {
-  try {
-    const [saltHex, hashHex] =
-      stored.split(':');
+function constantTimeEqual(a, b) {
+  if (a.length !== b.length) {
+    return false;
+  }
 
-    if (!saltHex || !hashHex) {
-      return false;
-    }
+  let x = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    x |= a[i] ^ b[i];
+  }
+
+  return x === 0;
+}
+
+async function verifyPassword(
+  password,
+  stored
+) {
+  try {
+
+    const [
+      saltText,
+      hashText
+    ] = stored.split(".");
 
     const salt =
-      Uint8Array.from(
-        saltHex.match(/../g)
-          .map(x => parseInt(x, 16))
-      );
+      fromBase64url(saltText);
+
+    const expected =
+      fromBase64url(hashText);
 
     const key =
       await crypto.subtle.importKey(
-        'raw',
-        new TextEncoder().encode(password),
-        'PBKDF2',
+        "raw",
+        enc.encode(password),
+        {
+          name: "PBKDF2"
+        },
         false,
-        ['deriveBits']
+        ["deriveBits"]
       );
 
     const bits =
       await crypto.subtle.deriveBits(
         {
-          name: 'PBKDF2',
+          name: "PBKDF2",
           salt,
           iterations: 100000,
-          hash: 'SHA-256'
+          hash: "SHA-256"
         },
         key,
         256
       );
 
-    const result =
-      [...new Uint8Array(bits)]
-        .map(x =>
-          x.toString(16).padStart(2, '0')
-        )
-        .join('');
-
-    return result === hashHex;
+    return constantTimeEqual(
+      expected,
+      new Uint8Array(bits)
+    );
 
   } catch {
     return false;
   }
 }
 
-function token(id) {
-  return btoa(
+function makeToken(user) {
+  const payload =
     JSON.stringify({
-      id,
-      exp: Date.now() + 7 * 86400000
-    })
-  ).replaceAll('=', '');
+      id: user.id,
+      username: user.username,
+      t: Date.now()
+    });
+
+  return base64url(
+    enc.encode(payload)
+  );
 }
 
-function getTokenUserId(req) {
+function readToken(req) {
+  const auth =
+    req.headers.get("authorization") || "";
+
+  if (!auth.startsWith("Bearer ")) {
+    return null;
+  }
+
   try {
-    const value =
-      req.headers
-        .get('authorization')
-        ?.replace(/^Bearer\s+/i, '');
 
-    if (!value) return null;
+    const bytes =
+      fromBase64url(
+        auth.slice(7)
+      );
 
-    const data =
-      JSON.parse(atob(value));
-
-    if (!data.exp || data.exp < Date.now()) {
-      return null;
-    }
-
-    return data.id;
+    return JSON.parse(
+      dec.decode(bytes)
+    );
 
   } catch {
     return null;
@@ -133,69 +192,37 @@ function getTokenUserId(req) {
 }
 
 async function getUser(req, env) {
+  const token =
+    readToken(req);
 
-  const tokenUserId =
-    getTokenUserId(req);
+  if (token?.id) {
 
-  if (tokenUserId) {
-    return env.DB
-      .prepare(
-        'SELECT * FROM users WHERE id=?'
+    const user =
+      await env.DB.prepare(
+        "SELECT * FROM users WHERE id=?"
       )
-      .bind(tokenUserId)
-      .first();
-  }
-
-  const username =
-    req.headers.get('x-user-name') ||
-    '하니';
-
-  let user =
-    await env.DB
-      .prepare(
-        'SELECT * FROM users WHERE username=?'
-      )
-      .bind(username)
+      .bind(token.id)
       .first();
 
-  if (!user) {
-
-    await env.DB
-      .prepare(`
-        INSERT INTO users
-        (
-          username,
-          password_hash,
-          points,
-          level,
-          xp,
-          body_size,
-          evolution,
-          wins,
-          losses
-        )
-        VALUES (?, '', 10000, 1, 0, 0, 0, 0, 0)
-      `)
-      .bind(username)
-      .run();
-
-    user =
-      await env.DB
-        .prepare(
-          'SELECT * FROM users WHERE username=?'
-        )
-        .bind(username)
-        .first();
+    if (user) {
+      return user;
+    }
   }
 
-  return user;
-}
+  const name =
+    decodeUserHeader(
+      req.headers.get("x-user-name")
+    );
 
-function getRoomStub(env, code) {
-  const id =
-    env.GameRoom.idFromName(code);
+  if (!name) {
+    return null;
+  }
 
-  return env.GameRoom.get(id);
+  return await env.DB.prepare(
+    "SELECT * FROM users WHERE username=?"
+  )
+  .bind(name)
+  .first();
 }
 
 export default {
@@ -205,808 +232,916 @@ export default {
     const url =
       new URL(req.url);
 
-    /*
-     * API가 아니면
-     * public 파일을 그대로 제공
-     */
-    if (!url.pathname.startsWith('/api/')) {
-      return env.ASSETS.fetch(req);
-    }
+    if (url.pathname.startsWith("/api/")) {
 
-    try {
+      try {
 
-      /*
-       * 회원가입
-       */
-      if (
-        req.method === 'POST' &&
-        url.pathname === '/api/register'
-      ) {
-
-        const {
-          username,
-          password
-        } = await req.json();
-
-        if (!username || !password) {
-          return json({
-            error:
-              '아이디와 비밀번호를 입력하세요.'
-          }, 400);
-        }
-
-        const exists =
-          await env.DB
-            .prepare(
-              'SELECT id FROM users WHERE username=?'
-            )
-            .bind(username)
-            .first();
-
-        if (exists) {
-          return json({
-            error:
-              '이미 사용 중인 닉네임입니다.'
-          }, 409);
-        }
-
-        const passwordHash =
-          await hashPassword(password);
-
-        const result =
-          await env.DB
-            .prepare(`
-              INSERT INTO users
-              (
-                username,
-                password_hash,
-                points,
-                level,
-                xp,
-                body_size,
-                evolution,
-                wins,
-                losses
-              )
-              VALUES (?, ?, 10000, 1, 0, 0, 0, 0, 0)
-            `)
-            .bind(
-              username,
-              passwordHash
-            )
-            .run();
-
-        return json({
-          ok: true,
-          token:
-            token(result.meta.last_row_id)
-        });
-      }
-
-      /*
-       * 로그인
-       */
-      if (
-        req.method === 'POST' &&
-        url.pathname === '/api/login'
-      ) {
-
-        const {
-          username,
-          password
-        } = await req.json();
-
-        const user =
-          await env.DB
-            .prepare(
-              'SELECT * FROM users WHERE username=?'
-            )
-            .bind(username)
-            .first();
+        /*
+          회원가입
+        */
 
         if (
-          !user ||
-          !(await verify(
-            password,
-            user.password_hash
-          ))
+          url.pathname === "/api/register" &&
+          req.method === "POST"
         ) {
+
+          const body =
+            await req.json()
+              .catch(() => ({}));
+
+          const username =
+            String(
+              body.username || ""
+            )
+            .trim()
+            .slice(0, 30);
+
+          const password =
+            String(
+              body.password || ""
+            );
+
+          if (!username || !password) {
+            return json(
+              {
+                error:
+                  "닉네임과 비밀번호를 입력해주세요."
+              },
+              400
+            );
+          }
+
+          if (password.length < 4) {
+            return json(
+              {
+                error:
+                  "비밀번호는 4자 이상이어야 합니다."
+              },
+              400
+            );
+          }
+
+          const exists =
+            await env.DB.prepare(
+              "SELECT id FROM users WHERE username=?"
+            )
+            .bind(username)
+            .first();
+
+          if (exists) {
+            return json(
+              {
+                error:
+                  "이미 사용 중인 닉네임이에요."
+              },
+              409
+            );
+          }
+
+          const passwordHash =
+            await hashPassword(
+              password
+            );
+
+          await env.DB.prepare(
+            `INSERT INTO users(
+              username,
+              password_hash,
+              points,
+              level,
+              xp,
+              body_size,
+              evolution,
+              wins,
+              losses
+            )
+            VALUES(?,?,?,?,?,?,?,?,?)`
+          )
+          .bind(
+            username,
+            passwordHash,
+            10000,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0
+          )
+          .run();
+
+          const user =
+            await env.DB.prepare(
+              "SELECT * FROM users WHERE username=?"
+            )
+            .bind(username)
+            .first();
+
           return json({
-            error:
-              '로그인 정보가 맞지 않습니다.'
-          }, 401);
+            user,
+            token: makeToken(user)
+          });
         }
 
-        return json({
-          ok: true,
-          token: token(user.id)
-        });
-      }
+        /*
+          로그인
+        */
 
-      /*
-       * 현재 사용자
-       */
-      if (
-        req.method === 'GET' &&
-        url.pathname === '/api/me'
-      ) {
+        if (
+          url.pathname === "/api/login" &&
+          req.method === "POST"
+        ) {
+
+          const body =
+            await req.json()
+              .catch(() => ({}));
+
+          const username =
+            String(
+              body.username || ""
+            )
+            .trim()
+            .slice(0, 30);
+
+          const password =
+            String(
+              body.password || ""
+            );
+
+          const user =
+            await env.DB.prepare(
+              "SELECT * FROM users WHERE username=?"
+            )
+            .bind(username)
+            .first();
+
+          if (
+            !user ||
+            !(await verifyPassword(
+              password,
+              user.password_hash
+            ))
+          ) {
+            return json(
+              {
+                error:
+                  "닉네임 또는 비밀번호가 맞지 않아요."
+              },
+              401
+            );
+          }
+
+          return json({
+            user,
+            token: makeToken(user)
+          });
+        }
+
+        /*
+          로그인 필요한 API
+        */
 
         const user =
           await getUser(req, env);
 
         if (!user) {
-          return json({
-            error:
-              '사용자를 찾을 수 없습니다.'
-          }, 404);
-        }
-
-        return json({
-          user: {
-            id: user.id,
-            username: user.username,
-            points: user.points,
-            level: user.level,
-            xp: user.xp,
-            body_size: user.body_size,
-            evolution: user.evolution,
-            wins: user.wins,
-            losses: user.losses
-          }
-        });
-      }
-
-      /*
-       * 랭킹
-       */
-      if (
-        req.method === 'GET' &&
-        url.pathname === '/api/ranking'
-      ) {
-
-        const rows =
-          await env.DB
-            .prepare(`
-              SELECT
-                username,
-                wins,
-                losses,
-                level
-              FROM users
-              ORDER BY wins DESC, level DESC
-              LIMIT 5
-            `)
-            .all();
-
-        return json(
-          rows.results || []
-        );
-      }
-
-      const user =
-        await getUser(req, env);
-
-      if (!user) {
-        return json({
-          error:
-            '로그인이 필요합니다.'
-        }, 401);
-      }
-
-      /*
-       * 하니 키우기
-       */
-      if (
-        req.method === 'POST' &&
-        url.pathname === '/api/action'
-      ) {
-
-        const {
-          type
-        } = await req.json();
-
-        const gain =
-          type === 'workout'
-            ? 80
-            : type === 'feed'
-              ? 40
-              : 20;
-
-        let xp =
-          Number(user.xp || 0) + gain;
-
-        let level =
-          Number(user.level || 1);
-
-        let body =
-          Number(user.body_size || 0);
-
-        let evolution =
-          Number(user.evolution || 0);
-
-        while (
-          xp >= level * 200
-        ) {
-
-          xp -= level * 200;
-          level++;
-          body++;
-
-          if (level >= 5)
-            evolution = 1;
-
-          if (level >= 10)
-            evolution = 2;
-
-          if (level >= 20)
-            evolution = 3;
-        }
-
-        await env.DB
-          .prepare(`
-            UPDATE users
-            SET
-              xp=?,
-              level=?,
-              body_size=?,
-              evolution=?,
-              points=points+?
-            WHERE id=?
-          `)
-          .bind(
-            xp,
-            level,
-            body,
-            evolution,
-            gain,
-            user.id
-          )
-          .run();
-
-        return json({
-          ok: true
-        });
-      }
-
-      /*
-       * 방 생성
-       */
-      if (
-        req.method === 'POST' &&
-        url.pathname === '/api/rooms'
-      ) {
-
-        const data =
-          await req.json();
-
-        const game =
-          data.game || 'shisen';
-
-        const stake =
-          Math.max(
-            0,
-            Number(data.stake) || 0
+          return json(
+            {
+              error:
+                "로그인이 필요합니다."
+            },
+            401
           );
+        }
+
+        /*
+          내 정보
+        */
 
         if (
-          !['shisen', 'omok', 'tetris']
-            .includes(game)
+          url.pathname === "/api/me" &&
+          req.method === "GET"
         ) {
+
           return json({
-            error:
-              '지원하지 않는 게임입니다.'
-          }, 400);
+            user
+          });
         }
 
-        const roomCode =
-          crypto.randomUUID()
-            .replaceAll('-', '')
-            .slice(0, 5)
-            .toUpperCase();
+        /*
+          랭킹
+        */
 
-        const stub =
-          getRoomStub(
-            env,
-            roomCode
-          );
+        if (
+          url.pathname === "/api/ranking" &&
+          req.method === "GET"
+        ) {
 
-        return stub.fetch(
-          new Request(
-            'https://room/create',
-            {
-              method: 'POST',
-              body: JSON.stringify({
-                roomCode,
-                game,
-                stake,
-                userId: user.id,
-                userName: user.username
-              })
-            }
-          )
-        );
-      }
+          const r =
+            await env.DB.prepare(
+              `SELECT
+                username,
+                points,
+                level,
+                wins,
+                losses
+               FROM users
+               ORDER BY points DESC
+               LIMIT 20`
+            )
+            .all();
 
-      /*
-       * 방 목록
-       */
-      if (
-        req.method === 'GET' &&
-        url.pathname === '/api/rooms'
-      ) {
+          return json({
+            ranking:
+              r.results || []
+          });
+        }
 
-        const game =
-          url.searchParams.get('game') ||
-          'shisen';
+        /*
+          하니 키우기
+        */
 
-        const rows =
-          await env.DB
-            .prepare(`
-              SELECT
-                r.room_code,
-                r.game,
-                r.host_id,
-                r.guest_id,
-                r.stake,
-                r.status,
-                r.created_at,
-                u.username AS host_name
-              FROM rooms r
-              LEFT JOIN users u
-                ON u.id = r.host_id
-              WHERE r.game=?
-                AND r.status IN ('waiting','ready')
-              ORDER BY r.created_at DESC
-            `)
+        if (
+          url.pathname === "/api/action" &&
+          req.method === "POST"
+        ) {
+
+          const body =
+            await req.json()
+              .catch(() => ({}));
+
+          const type =
+            String(
+              body.type || ""
+            );
+
+          if (type === "workout") {
+
+            await env.DB.prepare(
+              `UPDATE users
+               SET xp=xp+10,
+                   body_size=body_size+1
+               WHERE id=?`
+            )
+            .bind(user.id)
+            .run();
+
+          } else if (
+            type === "feed"
+          ) {
+
+            await env.DB.prepare(
+              `UPDATE users
+               SET xp=xp+5
+               WHERE id=?`
+            )
+            .bind(user.id)
+            .run();
+          }
+
+          return json({
+            ok: true
+          });
+        }
+
+        /*
+          방 목록
+        */
+
+        if (
+          url.pathname === "/api/rooms" &&
+          req.method === "GET"
+        ) {
+
+          const game =
+            url.searchParams.get("game") ||
+            "shisen";
+
+          const r =
+            await env.DB.prepare(
+              `SELECT
+                rooms.room_code,
+                rooms.game,
+                rooms.stake,
+                rooms.status,
+                users.username AS host_name
+               FROM rooms
+               JOIN users
+                 ON users.id = rooms.host_id
+               WHERE rooms.game=?
+                 AND rooms.status='waiting'
+               ORDER BY rooms.created_at DESC
+               LIMIT 30`
+            )
             .bind(game)
             .all();
 
-        return json({
-          game,
-          rooms:
-            rows.results || []
-        });
-      }
-
-      /*
-       * 방 참가
-       */
-      const joinMatch =
-        url.pathname.match(
-          /^\/api\/rooms\/([^/]+)\/join$/
-        );
-
-      if (
-        req.method === 'POST' &&
-        joinMatch
-      ) {
-
-        const code =
-          joinMatch[1];
-
-        const stub =
-          getRoomStub(env, code);
-
-        return stub.fetch(
-          new Request(
-            'https://room/join',
-            {
-              method: 'POST',
-              body: JSON.stringify({
-                userId: user.id,
-                userName: user.username
-              })
-            }
-          )
-        );
-      }
-
-      /*
-       * 방 상태
-       */
-      const stateMatch =
-        url.pathname.match(
-          /^\/api\/rooms\/([^/]+)$/
-        );
-
-      if (
-        req.method === 'GET' &&
-        stateMatch
-      ) {
-
-        const code =
-          stateMatch[1];
-
-        const stub =
-          getRoomStub(env, code);
-
-        return stub.fetch(
-          new Request(
-            'https://room/state'
-          )
-        );
-      }
-
-      /*
-       * WebSocket
-       */
-      const wsMatch =
-        url.pathname.match(
-          /^\/api\/rooms\/([^/]+)\/ws$/
-        );
-
-      if (
-        req.method === 'GET' &&
-        wsMatch
-      ) {
-
-        if (
-          req.headers.get('Upgrade')
-            ?.toLowerCase() !== 'websocket'
-        ) {
           return json({
-            error:
-              'WebSocket 연결이 필요합니다.'
-          }, 426);
+            rooms:
+              r.results || []
+          });
         }
 
-        const code =
-          wsMatch[1];
+        /*
+          방 만들기
+        */
 
-        const stub =
-          getRoomStub(env, code);
+        if (
+          url.pathname === "/api/rooms" &&
+          req.method === "POST"
+        ) {
 
-        const wsUrl =
-          new URL(req.url);
+          const body =
+            await req.json()
+              .catch(() => ({}));
 
-        wsUrl.pathname = '/ws';
+          const game =
+            String(
+              body.game || "shisen"
+            );
 
-        wsUrl.searchParams.set(
-          'userId',
-          String(user.id)
-        );
+          const stake =
+            Math.max(
+              0,
+              Number(
+                body.stake || 0
+              )
+            );
 
-        wsUrl.searchParams.set(
-          'userName',
-          user.username
-        );
+          if (stake > user.points) {
+            return json(
+              {
+                error:
+                  "포인트가 부족합니다."
+              },
+              400
+            );
+          }
 
-        return stub.fetch(
-          new Request(
-            wsUrl,
-            req
+          const roomCode =
+            crypto.randomUUID()
+              .replace(/-/g, "")
+              .slice(0, 6)
+              .toUpperCase();
+
+          await env.DB.prepare(
+            `INSERT INTO rooms(
+              room_code,
+              game,
+              host_id,
+              stake,
+              status
+            )
+            VALUES(?,?,?,?,?)`
           )
+          .bind(
+            roomCode,
+            game,
+            user.id,
+            stake,
+            "waiting"
+          )
+          .run();
+
+          const id =
+            env.GameRoom.idFromName(
+              roomCode
+            );
+
+          const stub =
+            env.GameRoom.get(id);
+
+          await stub.fetch(
+            "https://room/create",
+            {
+              method: "POST",
+
+              body: JSON.stringify({
+                code: roomCode,
+                game,
+                stake,
+                host: user.username,
+                hostId: user.id
+              })
+            }
+          );
+
+          return json({
+            roomCode
+          });
+        }
+
+        /*
+          방 API
+        */
+
+        const match =
+          url.pathname.match(
+            /^\/api\/rooms\/([^/]+)(?:\/(join|ready|move|ws))?$/
+          );
+
+        if (match) {
+
+          const code =
+            match[1];
+
+          const action =
+            match[2] || "state";
+
+          const id =
+            env.GameRoom.idFromName(
+              code
+            );
+
+          const stub =
+            env.GameRoom.get(id);
+
+          /*
+            입장
+          */
+
+          if (action === "join") {
+
+            return stub.fetch(
+              "https://room/join",
+              {
+                method: "POST",
+
+                body: JSON.stringify({
+                  username:
+                    user.username,
+
+                  userId:
+                    user.id
+                })
+              }
+            );
+          }
+
+          /*
+            READY
+          */
+
+          if (action === "ready") {
+
+            return stub.fetch(
+              "https://room/ready",
+              {
+                method: "POST",
+
+                body: JSON.stringify({
+                  username:
+                    user.username
+                })
+              }
+            );
+          }
+
+          /*
+            MOVE
+          */
+
+          if (action === "move") {
+
+            return stub.fetch(
+              "https://room/move",
+              {
+                method: "POST",
+
+                body:
+                  await req.text()
+              }
+            );
+          }
+
+          /*
+            WebSocket
+          */
+
+          if (action === "ws") {
+
+            return stub.fetch(
+              "https://room/ws",
+              {
+                headers:
+                  req.headers
+              }
+            );
+          }
+
+          /*
+            상태
+          */
+
+          return stub.fetch(
+            "https://room/state"
+          );
+        }
+
+        return json(
+          {
+            error:
+              "Not found"
+          },
+          404
+        );
+
+      } catch (e) {
+
+        return json(
+          {
+            error:
+              e?.message ||
+              String(e)
+          },
+          500
         );
       }
-
-      return json({
-        error:
-          'Not found'
-      }, 404);
-
-    } catch (error) {
-
-      console.error(error);
-
-      return json({
-        error:
-          error?.message ||
-          '서버 오류'
-      }, 500);
     }
+
+    /*
+      일반 파일은
+      Cloudflare Static Assets에서 제공
+    */
+
+    return env.ASSETS.fetch(req);
   }
 };
 
-
-export class GameRoom extends DurableObject {
+export class GameRoom
+  extends DurableObject {
 
   constructor(ctx, env) {
     super(ctx, env);
 
     this.ctx = ctx;
     this.env = env;
-
-    this.state = {
-      roomCode: null,
-      game: 'shisen',
-      stake: 0,
-
-      host: null,
-      guest: null,
-
-      ready: {},
-
-      status: 'waiting',
-
-      turn: null,
-
-      board: []
-    };
-
-    this.loaded = false;
   }
 
   async load() {
 
-    if (this.loaded) {
-      return;
-    }
-
-    const saved =
+    return (
       await this.ctx.storage.get(
-        'state'
-      );
+        "state"
+      )
+    ) || {
 
-    if (saved) {
-      this.state = saved;
-    }
+      room: null,
 
-    this.loaded = true;
+      players: [],
+
+      ready: [],
+
+      status: "waiting",
+
+      turn: null,
+
+      board:
+        Array(25).fill("🐰")
+    };
   }
 
-  async save() {
+  async save(state) {
 
     await this.ctx.storage.put(
-      'state',
-      this.state
+      "state",
+      state
     );
+
+    return state;
   }
 
-  async broadcast() {
+  async broadcast(message) {
 
-    const message =
-      JSON.stringify({
-        type: 'room',
-        state: this.state
-      });
+    const sockets =
+      this.ctx.getWebSockets();
 
-    for (
-      const ws of this.ctx.getWebSockets()
-    ) {
+    const text =
+      JSON.stringify(message);
+
+    for (const ws of sockets) {
+
       try {
-        ws.send(message);
+        ws.send(text);
       } catch {}
     }
   }
 
-  async updateDB() {
-
-    if (!this.state.roomCode) {
-      return;
-    }
-
-    await this.env.DB
-      .prepare(`
-        UPDATE rooms
-        SET
-          status=?,
-          guest_id=?
-        WHERE room_code=?
-      `)
-      .bind(
-        this.state.status,
-        this.state.guest?.id || null,
-        this.state.roomCode
-      )
-      .run();
-  }
-
   async fetch(req) {
-
-    await this.load();
 
     const url =
       new URL(req.url);
 
+    let state =
+      await this.load();
+
     /*
-     * 방 생성
-     */
+      방 생성
+    */
+
     if (
-      req.method === 'POST' &&
-      url.pathname === '/create'
+      url.pathname === "/create"
     ) {
 
-      const data =
+      const body =
         await req.json();
 
-      this.state = {
+      state.room = {
+
         roomCode:
-          data.roomCode,
+          body.code,
 
         game:
-          data.game,
+          body.game,
 
         stake:
-          Number(data.stake) || 0,
+          body.stake,
 
         host: {
           id:
-            data.userId,
+            body.hostId,
 
           name:
-            data.userName
-        },
-
-        guest:
-          null,
-
-        ready:
-          {},
-
-        status:
-          'waiting',
-
-        turn:
-          null,
-
-        board:
-          data.game === 'shisen'
-            ? createShisenBoard()
-            : []
+            body.host
+        }
       };
 
-      await this.save();
+      state.players = [
+        body.host
+      ];
 
-      await this.env.DB
-        .prepare(`
-          INSERT OR REPLACE INTO rooms
-          (
-            room_code,
-            game,
-            host_id,
-            guest_id,
-            stake,
-            status
-          )
-          VALUES (?, ?, ?, NULL, ?, 'waiting')
-        `)
-        .bind(
-          this.state.roomCode,
-          this.state.game,
-          data.userId,
-          this.state.stake
-        )
-        .run();
+      state.ready = [];
+
+      state.status =
+        "waiting";
+
+      state.turn = null;
+
+      state.board =
+        Array(25).fill("🐰");
+
+      await this.save(
+        state
+      );
 
       return json({
         ok: true,
-        roomCode:
-          this.state.roomCode,
-
         state:
-          this.state
+          this.publicState(state)
       });
     }
 
     /*
-     * 방 참가
-     */
+      방 입장
+    */
+
     if (
-      req.method === 'POST' &&
-      url.pathname === '/join'
+      url.pathname === "/join"
     ) {
 
-      const data =
+      const body =
         await req.json();
 
-      if (!this.state.host) {
-        return json({
-          error:
-            '존재하지 않는 방입니다.'
-        }, 404);
+      if (!state.room) {
+
+        return json(
+          {
+            error:
+              "방을 찾을 수 없습니다."
+          },
+          404
+        );
       }
 
-      if (this.state.guest) {
-        return json({
-          error:
-            '방이 가득 찼습니다.'
-        }, 409);
+      if (state.guest) {
+
+        return json(
+          {
+            error:
+              "방이 가득 찼습니다."
+          },
+          400
+        );
       }
 
       if (
-        String(this.state.host.id) ===
-        String(data.userId)
+        state.host?.name ===
+        body.username
       ) {
+
         return json({
-          error:
-            '자신의 방에는 참가할 수 없습니다.'
-        }, 400);
+          ok: true,
+          state:
+            this.publicState(
+              state
+            )
+        });
       }
 
-      this.state.guest = {
+      state.guest = {
+
         id:
-          data.userId,
+          body.userId,
 
         name:
-          data.userName
+          body.username
       };
 
-      this.state.ready = {
-        [this.state.host.id]:
-          false,
+      state.players = [
+        state.host.name,
+        body.username
+      ];
 
-        [this.state.guest.id]:
-          false
-      };
+      state.status =
+        "ready";
 
-      this.state.status =
-        'ready';
+      await this.save(
+        state
+      );
 
-      await this.save();
-
-      await this.updateDB();
-
-      await this.broadcast();
+      await this.syncRoom();
 
       return json({
         ok: true,
         state:
-          this.state
+          this.publicState(state)
       });
     }
 
     /*
-     * 방 상태
-     */
+      READY
+    */
+
     if (
-      req.method === 'GET' &&
-      url.pathname === '/state'
+      url.pathname === "/ready"
     ) {
 
-      return json({
-        state:
-          this.state
-      });
-    }
-
-    /*
-     * WebSocket
-     */
-    if (
-      req.method === 'GET' &&
-      url.pathname === '/ws'
-    ) {
+      const body =
+        await req.json();
 
       if (
-        req.headers.get('Upgrade')
-          ?.toLowerCase() !== 'websocket'
+        !state.ready.includes(
+          body.username
+        )
       ) {
-        return json({
-          error:
-            'WebSocket 연결이 필요합니다.'
-        }, 426);
+
+        state.ready.push(
+          body.username
+        );
       }
+
+      if (
+        state.host &&
+        state.guest &&
+        state.ready.includes(
+          state.host.name
+        ) &&
+        state.ready.includes(
+          state.guest.name
+        )
+      ) {
+
+        state.status =
+          "playing";
+
+        state.turn =
+          state.host.id;
+      }
+
+      await this.save(
+        state
+      );
+
+      await this.syncRoom();
+
+      await this.broadcast({
+        type: "room",
+
+        state:
+          this.publicState(
+            state
+          )
+      });
+
+      return json({
+        ok: true,
+        state:
+          this.publicState(state)
+      });
+    }
+
+    /*
+      게임 이동
+    */
+
+    if (
+      url.pathname === "/move"
+    ) {
+
+      const body =
+        await req.json()
+          .catch(() => ({}));
+
+      if (
+        state.status !==
+        "playing"
+      ) {
+
+        return json(
+          {
+            error:
+              "게임이 아직 시작되지 않았습니다."
+          },
+          400
+        );
+      }
+
+      const a =
+        Number(body.a);
+
+      const b =
+        Number(body.b);
+
+      if (
+        Number.isInteger(a) &&
+        Number.isInteger(b) &&
+        a >= 0 &&
+        a < 25 &&
+        b >= 0 &&
+        b < 25 &&
+        a !== b &&
+        state.board[a] &&
+        state.board[b] &&
+        state.board[a] ===
+          state.board[b]
+      ) {
+
+        state.board[a] =
+          null;
+
+        state.board[b] =
+          null;
+      }
+
+      state.turn =
+        state.turn ===
+          state.host.id
+
+          ? state.guest?.id
+
+          : state.host.id;
+
+      await this.save(
+        state
+      );
+
+      await this.broadcast({
+        type: "room",
+
+        state:
+          this.publicState(
+            state
+          )
+      });
+
+      return json({
+        ok: true,
+        state:
+          this.publicState(
+            state
+          )
+      });
+    }
+
+    /*
+      WebSocket
+    */
+
+    if (
+      url.pathname === "/ws"
+    ) {
 
       const pair =
         new WebSocketPair();
 
-      const [client, server] =
+      const [
+        client,
+        server
+      ] =
         Object.values(pair);
-
-      const userId =
-        url.searchParams.get(
-          'userId'
-        );
-
-      const userName =
-        url.searchParams.get(
-          'userName'
-        );
 
       this.ctx.acceptWebSocket(
         server
       );
 
-      server.serializeAttachment({
-        userId,
-        userName
-      });
-
       server.send(
         JSON.stringify({
-          type: 'room',
+          type: "room",
+
           state:
-            this.state
+            this.publicState(
+              state
+            )
         })
       );
 
@@ -1020,10 +1155,28 @@ export class GameRoom extends DurableObject {
       );
     }
 
-    return json({
-      state:
-        this.state
-    });
+    /*
+      방 상태
+    */
+
+    if (
+      url.pathname === "/state"
+    ) {
+
+      return json({
+        state:
+          this.publicState(
+            state
+          )
+      });
+    }
+
+    return new Response(
+      "Not found",
+      {
+        status: 404
+      }
+    );
   }
 
   async webSocketMessage(
@@ -1031,236 +1184,161 @@ export class GameRoom extends DurableObject {
     message
   ) {
 
-    await this.load();
-
-    let data;
-
     try {
-      data =
+
+      const body =
         JSON.parse(message);
-    } catch {
-      return;
-    }
 
-    const session =
-      ws.deserializeAttachment();
+      let state =
+        await this.load();
 
-    if (!session) {
-      return;
-    }
-
-    /*
-     * 준비 버튼
-     */
-    if (
-      data.type === 'ready'
-    ) {
-
-      const uid =
-        String(session.userId);
+      /*
+        READY는 HTTP API로 처리
+      */
 
       if (
-        !this.state.ready ||
-        !(uid in this.state.ready)
-      ) {
-        return;
-      }
-
-      this.state.ready[uid] =
-        true;
-
-      const hostReady =
-        this.state.host &&
-        this.state.ready[
-          this.state.host.id
-        ];
-
-      const guestReady =
-        this.state.guest &&
-        this.state.ready[
-          this.state.guest.id
-        ];
-
-      if (
-        hostReady &&
-        guestReady
-      ) {
-
-        this.state.status =
-          'playing';
-
-        this.state.turn =
-          this.state.host.id;
-      }
-
-      await this.save();
-
-      await this.updateDB();
-
-      await this.broadcast();
-
-      return;
-    }
-
-    /*
-     * 사천성 이동
-     */
-    if (
-      data.type === 'move'
-    ) {
-
-      if (
-        this.state.game !== 'shisen'
-      ) {
-        return;
-      }
-
-      if (
-        this.state.status !== 'playing'
-      ) {
-        return;
-      }
-
-      const uid =
-        String(session.userId);
-
-      if (
-        String(this.state.turn) !== uid
-      ) {
-        return;
-      }
-
-      const a =
-        Number(data.a);
-
-      const b =
-        Number(data.b);
-
-      if (
-        !Number.isInteger(a) ||
-        !Number.isInteger(b)
-      ) {
-        return;
-      }
-
-      if (
-        !this.state.board[a] ||
-        !this.state.board[b]
+        body?.type ===
+        "ready"
       ) {
         return;
       }
 
       /*
-       * 임시 규칙:
-       * 같은 그림이면 제거
-       */
+        MOVE
+      */
+
       if (
-        this.state.board[a] ===
-        this.state.board[b]
+        body?.type ===
+        "move"
       ) {
 
-        this.state.board[a] =
-          null;
-
-        this.state.board[b] =
-          null;
-
-        const finished =
-          this.state.board.every(
-            x => !x
-          );
-
-        if (finished) {
-
-          this.state.status =
-            'finished';
-
-          const winner =
-            String(
-              this.state.host.id
-            ) === uid
-              ? this.state.host
-              : this.state.guest;
-
-          if (winner) {
-
-            const reward =
-              Number(this.state.stake) * 2;
-
-            await this.env.DB
-              .prepare(`
-                UPDATE users
-                SET
-                  wins=wins+1,
-                  points=points+?
-                WHERE id=?
-              `)
-              .bind(
-                reward,
-                winner.id
-              )
-              .run();
-          }
-
-        } else {
-
-          this.state.turn =
-            String(
-              this.state.host.id
-            ) === uid
-              ? this.state.guest?.id
-              : this.state.host?.id;
+        if (
+          state.status !==
+          "playing"
+        ) {
+          return;
         }
 
-        await this.save();
+        const a =
+          Number(body.a);
 
-        await this.updateDB();
+        const b =
+          Number(body.b);
 
-        await this.broadcast();
+        if (
+          Number.isInteger(a) &&
+          Number.isInteger(b) &&
+          a >= 0 &&
+          a < 25 &&
+          b >= 0 &&
+          b < 25 &&
+          a !== b &&
+          state.board[a] &&
+          state.board[b] &&
+          state.board[a] ===
+            state.board[b]
+        ) {
+
+          state.board[a] =
+            null;
+
+          state.board[b] =
+            null;
+        }
+
+        state.turn =
+          state.turn ===
+            state.host.id
+
+            ? state.guest?.id
+
+            : state.host.id;
+
+        await this.save(
+          state
+        );
+
+        await this.broadcast({
+          type: "room",
+
+          state:
+            this.publicState(
+              state
+            )
+        });
       }
 
+    } catch {}
+  }
+
+  publicState(state) {
+
+    return {
+
+      roomCode:
+        state.room?.roomCode,
+
+      game:
+        state.room?.game,
+
+      stake:
+        state.room?.stake || 0,
+
+      host:
+        state.host || null,
+
+      guest:
+        state.guest || null,
+
+      players:
+        state.players || [],
+
+      ready:
+        state.ready || [],
+
+      status:
+        state.status ||
+        "waiting",
+
+      turn:
+        state.turn || null,
+
+      board:
+        state.board || []
+    };
+  }
+
+  async syncRoom() {
+
+    const state =
+      await this.load();
+
+    if (!state.room) {
       return;
     }
+
+    try {
+
+      await this.env.DB.prepare(
+        `UPDATE rooms
+         SET guest_id=(
+           SELECT id
+           FROM users
+           WHERE username=?
+         ),
+         status=?
+         WHERE room_code=?`
+      )
+      .bind(
+        state.guest?.name ||
+          null,
+
+        state.status,
+
+        state.room.roomCode
+      )
+      .run();
+
+    } catch {}
   }
-
-  async webSocketClose() {
-  }
-}
-
-
-function createShisenBoard() {
-
-  const tiles = [
-    '🍎','🍎',
-    '🍋','🍋',
-    '🍇','🍇',
-    '🍒','🍒',
-    '🍑','🍑',
-    '🍉','🍉',
-    '🥝','🥝',
-    '🍓','🍓',
-    '🍊','🍊'
-  ];
-
-  for (
-    let i = tiles.length - 1;
-    i > 0;
-    i--
-  ) {
-
-    const j =
-      Math.floor(
-        Math.random() * (i + 1)
-      );
-
-    [
-      tiles[i],
-      tiles[j]
-    ] = [
-      tiles[j],
-      tiles[i]
-    ];
-  }
-
-  return tiles;
 }
