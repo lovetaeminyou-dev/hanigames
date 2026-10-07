@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#eef8ff">
+<title>하니게임즈 관리자</title>
+
+<style>
+*{
+  box-sizing:border-box;
+}
+
+:root{
+  --bg:#eef8ff;
+  --card:#ffffff;
+  --blue:#5b9fd8;
+  --blue-dark:#477fae;
+  --line:#dcebf5;
+  --text:#1e2b35;
+  --muted:#74838d;
+  --danger:#e96f78;
+  --green:#63b78d;
+}
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Noto Sans KR",
+    "Apple SD Gothic Neo",
+    sans-serif;
+}
+
+button,
+input,
+textarea,
+select{
+  font:inherit;
+}
+
+button{
+  cursor:pointer;
+  border:0;
+}
+
+.wrap{
+  width:min(760px,100%);
+  margin:auto;
+  min-height:100vh;
+  padding-bottom:40px;
+}
+
+.top{
+  height:72px;
+  background:#fff;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 20px;
+  position:sticky;
+  top:0;
+  z-index:10;
+}
+
+.logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:21px;
+  font-weight:950;
+}
+
+.logo-icon{
+  width:40px;
+  height:40px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(145deg,#76b8e7,#4d91ca);
+  font-size:23px;
+}
+
+.admin-badge{
+  background:#e9f5fd;
+  color:var(--blue-dark);
+  padding:8px 12px;
+  border-radius:999px;
+  font-size:13px;
+  font-weight:900;
+}
+
+.content{
+  padding:20px;
+}
+
+.title{
+  font-size:28px;
+  font-weight:950;
+  margin:10px 0 5px;
+}
+
+.subtitle{
+  color:var(--muted);
+  margin-bottom:22px;
+}
+
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:24px;
+  padding:20px;
+  margin-bottom:15px;
+  box-shadow:0 8px 24px rgba(65,130,175,.08);
+}
+
+.card-title{
+  font-size:19px;
+  font-weight:950;
+  margin-bottom:16px;
+}
+
+.field{
+  margin-bottom:15px;
+}
+
+.field label{
+  display:block;
+  font-weight:850;
+  margin-bottom:7px;
+}
+
+input,
+textarea,
+select{
+  width:100%;
+  border:1px solid var(--line);
+  background:#fbfdff;
+  border-radius:14px;
+  padding:13px 14px;
+  outline:none;
+  color:var(--text);
+}
+
+textarea{
+  min-height:120px;
+  resize:vertical;
+}
+
+input:focus,
+textarea:focus,
+select:focus{
+  border-color:var(--blue);
+  box-shadow:0 0 0 3px #5b9fd822;
+}
+
+.primary{
+  width:100%;
+  background:var(--blue);
+  color:#fff;
+  padding:14px;
+  border-radius:15px;
+  font-weight:950;
+  font-size:17px;
+}
+
+.secondary{
+  background:#e9f5fd;
+  color:var(--blue-dark);
+  padding:11px 14px;
+  border-radius:13px;
+  font-weight:900;
+}
+
+.danger{
+  background:#fff0f1;
+  color:#d45761;
+  padding:11px 14px;
+  border-radius:13px;
+  font-weight:900;
+}
+
+.notice-list{
+  display:grid;
+  gap:12px;
+}
+
+.notice-item{
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:16px;
+  background:#fbfdff;
+}
+
+.notice-top{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:flex-start;
+}
+
+.notice-text{
+  font-weight:900;
+  line-height:1.5;
+  word-break:break-word;
+}
+
+.notice-meta{
+  color:var(--muted);
+  font-size:12px;
+  margin-top:8px;
+}
+
+.notice-status{
+  flex-shrink:0;
+  padding:6px 9px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:900;
+}
+
+.status-on{
+  background:#e8f7ef;
+  color:#438c68;
+}
+
+.status-off{
+  background:#edf0f2;
+  color:#78838a;
+}
+
+.notice-actions{
+  display:flex;
+  gap:7px;
+  margin-top:13px;
+  flex-wrap:wrap;
+}
+
+.notice-actions button{
+  flex:1;
+  min-width:80px;
+}
+
+.empty{
+  text-align:center;
+  color:var(--muted);
+  padding:30px 10px;
+}
+
+.login-box{
+  min-height:100vh;
+  display:grid;
+  place-items:center;
+  padding:20px;
+}
+
+.login-card{
+  width:min(430px,100%);
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:25px;
+  padding:25px;
+  box-shadow:0 12px 35px rgba(65,130,175,.10);
+}
+
+.login-bunny{
+  text-align:center;
+  font-size:75px;
+  margin-bottom:5px;
+}
+
+.login-title{
+  text-align:center;
+  font-size:28px;
+  font-weight:950;
+}
+
+.login-sub{
+  text-align:center;
+  color:var(--muted);
+  margin-bottom:22px;
+}
+
+.message{
+  position:fixed;
+  left:50%;
+  bottom:25px;
+  transform:translateX(-50%);
+  background:#202a33;
+  color:#fff;
+  padding:13px 18px;
+  border-radius:999px;
+  z-index:100;
+  font-weight:800;
+  box-shadow:0 8px 25px #0003;
+}
+
+.hidden{
+  display:none!important;
+}
+
+.row{
+  display:flex;
+  gap:10px;
+}
+
+.row>*{
+  flex:1;
+}
+
+.logout{
+  background:#f2f5f7;
+  color:#66747c;
+  padding:9px 13px;
+  border-radius:12px;
+  font-weight:850;
+}
+
+@media(max-width:520px){
+  .content{
+    padding:16px;
+  }
+
+  .card{
+    padding:17px;
+  }
+
+  .title{
+    font-size:25px;
+  }
+
+  .notice-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+
+  .row{
+    flex-direction:column;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div id="app"></div>
+
+<script>
+const app = document.getElementById("app");
+
+let notices = [];
+let editingId = null;
+
+/* =========================
+   API
+========================= */
+
+async function api(url, options = {}){
+
+  const token =
+    localStorage.getItem("haniToken");
+
+  options.headers = {
+    ...(options.headers || {}),
+    ...(token
+      ? { Authorization:`Bearer ${token}` }
+      : {})
+  };
+
+  const response =
+    await fetch(url, options);
+
+  const text =
+    await response.text();
+
+  let data = {};
+
+  try{
+    data = JSON.parse(text);
+  }catch{
+    data = {
+      error:text
+    };
+  }
+
+  if(!response.ok){
+    throw new Error(
+      data.error || "요청에 실패했습니다."
+    );
+  }
+
+  return data;
+}
+
+/* =========================
+   MESSAGE
+========================= */
+
+function message(text){
+
+  const old =
+    document.querySelector(".message");
+
+  if(old) old.remove();
+
+  const el =
+    document.createElement("div");
+
+  el.className = "message";
+  el.textContent = text;
+
+  document.body.appendChild(el);
+
+  setTimeout(()=>{
+    el.remove();
+  },1800);
+}
+
+/* =========================
+   LOGIN
+========================= */
+
+function loginScreen(){
+
+  app.innerHTML = `
+    <div class="login-box">
+
+      <div class="login-card">
+
+        <div class="login-bunny">
+          🐰
+        </div>
+
+        <div class="login-title">
+          하니게임즈 관리자
+        </div>
+
+        <div class="login-sub">
+          관리자 계정으로 로그인해주세요.
+        </div>
+
+        <div class="field">
+          <label>닉네임</label>
+          <input
+            id="loginName"
+            placeholder="관리자 닉네임"
+          >
+        </div>
+
+        <div class="field">
+          <label>비밀번호</label>
+          <input
+            id="loginPassword"
+            type="password"
+            placeholder="비밀번호"
+          >
+        </div>
+
+        <button
+          class="primary"
+          onclick="adminLogin()"
+        >
+          관리자 로그인
+        </button>
+
+      </div>
+
+    </div>
+  `;
+}
+
+async function adminLogin(){
+
+  const username =
+    document.getElementById("loginName").value.trim();
+
+  const password =
+    document.getElementById("loginPassword").value;
+
+  if(!username || !password){
+    message("닉네임과 비밀번호를 입력해주세요.");
+    return;
+  }
+
+  try{
+
+    const data =
+      await api("/api/login",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          username,
+          password
+        })
+      });
+
+    localStorage.setItem(
+      "haniToken",
+      data.token
+    );
+
+    localStorage.setItem(
+      "haniUser",
+      JSON.stringify(data.user)
+    );
+
+    await loadAdmin();
+
+  }catch(error){
+
+    message(error.message);
+
+  }
+}
+
+/* =========================
+   ADMIN
+========================= */
+
+async function loadAdmin(){
+
+  try{
+
+    const me =
+      await api("/api/me");
+
+    /*
+      서버가 관리자 여부를
+      알려주지 않는 경우를 대비해서
+      화면에서도 role을 확인합니다.
+    */
+
+    if(
+      me.user.role &&
+      me.user.role !== "admin"
+    ){
+      app.innerHTML = `
+        <div class="login-box">
+          <div class="login-card">
+            <div class="login-bunny">🚫</div>
+            <div class="login-title">
+              관리자 권한 없음
+            </div>
+            <div class="login-sub">
+              이 계정은 관리자 계정이 아닙니다.
+            </div>
+            <button
+              class="secondary"
+              style="width:100%"
+              onclick="logout()"
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    renderAdmin();
+
+    await loadNotices();
+
+  }catch(error){
+
+    loginScreen();
+
+  }
+}
+
+/* =========================
+   ADMIN PAGE
+========================= */
+
+function renderAdmin(){
+
+  app.innerHTML = `
+    <div class="wrap">
+
+      <header class="top">
+
+        <div class="logo">
+          <span class="logo-icon">🐰</span>
+          하니게임즈 관리자
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center">
+
+          <span class="admin-badge">
+            ADMIN
+          </span>
+
+          <button
+            class="logout"
+            onclick="logout()"
+          >
+            로그아웃
+          </button>
+
+        </div>
+
+      </header>
+
+      <main class="content">
+
+        <div class="title">
+          📢 공지 관리
+        </div>
+
+        <div class="subtitle">
+          하니게임즈 상단에 표시되는 공지를 관리합니다.
+        </div>
+
+        <section class="card">
+
+          <div class="card-title">
+            ${editingId ? "✏️ 공지 수정" : "➕ 새 공지 등록"}
+          </div>
+
+          <div class="field">
+
+            <label>
+              공지 내용
+            </label>
+
+            <textarea
+              id="noticeText"
+              placeholder="예: 📢 10월 10일 영등포 대벙 많관부!"
+            ></textarea>
+
+          </div>
+
+          <div class="field">
+
+            <label>
+              버튼 문구
+            </label>
+
+            <input
+              id="noticeButton"
+              placeholder="예: 자세히 보기"
+            >
+
+          </div>
+
+          <div class="field">
+
+            <label>
+              버튼 링크
+            </label>
+
+            <input
+              id="noticeLink"
+              placeholder="https://..."
+            >
+
+          </div>
+
+          <div class="field">
+
+            <label>
+              노출 여부
+            </label>
+
+            <select id="noticeActive">
+              <option value="1">
+                노출
+              </option>
+              <option value="0">
+                숨김
+              </option>
+            </select>
+
+          </div>
+
+          <div class="row">
+
+            <button
+              class="primary"
+              onclick="saveNotice()"
+            >
+              ${editingId ? "수정 저장" : "공지 등록"}
+            </button>
+
+            ${
+              editingId
+              ?
+              `
+                <button
+                  class="secondary"
+                  onclick="cancelEdit()"
+                >
+                  수정 취소
+                </button>
+              `
+              :
+              ""
+            }
+
+          </div>
+
+        </section>
+
+        <section class="card">
+
+          <div class="card-title">
+            📋 등록된 공지
+          </div>
+
+          <div
+            id="noticeList"
+            class="notice-list"
+          >
+            <div class="empty">
+              공지를 불러오는 중...
+            </div>
+          </div>
+
+        </section>
+
+      </main>
+
+    </div>
+  `;
+}
+
+/* =========================
+   NOTICE LOAD
+========================= */
+
+async function loadNotices(){
+
+  try{
+
+    const data =
+      await api("/api/admin/notices");
+
+    notices =
+      data.notices || [];
+
+    renderNoticeList();
+
+  }catch(error){
+
+    document.getElementById(
+      "noticeList"
+    ).innerHTML = `
+      <div class="empty">
+        공지를 불러오지 못했습니다.<br><br>
+        ${escapeHtml(error.message)}
+      </div>
+    `;
+
+  }
+}
+
+/* =========================
+   NOTICE LIST
+========================= */
+
+function renderNoticeList(){
+
+  const box =
+    document.getElementById("noticeList");
+
+  if(!notices.length){
+
+    box.innerHTML = `
+      <div class="empty">
+        아직 등록된 공지가 없습니다. 🐰
+      </div>
+    `;
+
+    return;
+  }
+
+  box.innerHTML =
+    notices.map(notice => {
+
+      const active =
+        Number(notice.active) === 1;
+
+      return `
+        <div class="notice-item">
+
+          <div class="notice-top">
+
+            <div class="notice-text">
+              ${escapeHtml(
+                notice.message
+              )}
+            </div>
+
+            <span
+              class="notice-status ${
+                active
+                ? "status-on"
+                : "status-off"
+              }"
+            >
+              ${
+                active
+                ? "노출 중"
+                : "숨김"
+              }
+            </span>
+
+          </div>
+
+          <div class="notice-meta">
+
+            ${
+              notice.button_text
+              ? `버튼: ${escapeHtml(notice.button_text)}`
+              : "버튼 없음"
+            }
+
+          </div>
+
+          <div class="notice-actions">
+
+            <button
+              class="secondary"
+              onclick="editNotice(${notice.id})"
+            >
+              수정
+            </button>
+
+            <button
+              class="secondary"
+              onclick="toggleNotice(${notice.id})"
+            >
+              ${
+                active
+                ? "숨기기"
+                : "노출하기"
+              }
+            </button>
+
+            <button
+              class="danger"
+              onclick="deleteNotice(${notice.id})"
+            >
+              삭제
+            </button>
+
+          </div>
+
+        </div>
+      `;
+
+    }).join("");
+}
+
+/* =========================
+   SAVE
+========================= */
+
+async function saveNotice(){
+
+  const messageText =
+    document
+      .getElementById("noticeText")
+      .value
+      .trim();
+
+  const buttonText =
+    document
+      .getElementById("noticeButton")
+      .value
+      .trim();
+
+  const buttonLink =
+    document
+      .getElementById("noticeLink")
+      .value
+      .trim();
+
+  const active =
+    Number(
+      document
+        .getElementById("noticeActive")
+        .value
+    );
+
+  if(!messageText){
+
+    message(
+      "공지 내용을 입력해주세요."
+    );
+
+    return;
+  }
+
+  try{
+
+    const payload = {
+      message:messageText,
+      button_text:buttonText,
+      button_link:buttonLink,
+      active
+    };
+
+    if(editingId){
+
+      await api(
+        `/api/admin/notices/${editingId}`,
+        {
+          method:"PUT",
+          headers:{
+            "Content-Type":"application/json"
+          },
+          body:JSON.stringify(payload)
+        }
+      );
+
+      message("공지를 수정했습니다.");
+
+    }else{
+
+      await api(
+        "/api/admin/notices",
+        {
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json"
+          },
+          body:JSON.stringify(payload)
+        }
+      );
+
+      message("공지를 등록했습니다.");
+
+    }
+
+    cancelEdit();
+
+    await loadNotices();
+
+  }catch(error){
+
+    message(error.message);
+
+  }
+}
+
+/* =========================
+   EDIT
+========================= */
+
+function editNotice(id){
+
+  const notice =
+    notices.find(
+      item => Number(item.id) === Number(id)
+    );
+
+  if(!notice) return;
+
+  editingId = id;
+
+  document.getElementById(
+    "noticeText"
+  ).value =
+    notice.message || "";
+
+  document.getElementById(
+    "noticeButton"
+  ).value =
+    notice.button_text || "";
+
+  document.getElementById(
+    "noticeLink"
+  ).value =
+    notice.button_link || "";
+
+  document.getElementById(
+    "noticeActive"
+  ).value =
+    Number(notice.active) === 1
+      ? "1"
+      : "0";
+
+  renderAdminAfterEdit();
+
+  window.scrollTo({
+    top:0,
+    behavior:"smooth"
+  });
+}
+
+function renderAdminAfterEdit(){
+
+  const title =
+    document.querySelector(
+      ".card .card-title"
+    );
+
+  if(title){
+    title.textContent =
+      "✏️ 공지 수정";
+  }
+
+  const button =
+    document.querySelector(
+      ".card .primary"
+    );
+
+  if(button){
+    button.textContent =
+      "수정 저장";
+  }
+}
+
+function cancelEdit(){
+
+  editingId = null;
+
+  const text =
+    document.getElementById(
+      "noticeText"
+    );
+
+  if(text) text.value = "";
+
+  const button =
+    document.getElementById(
+      "noticeButton"
+    );
+
+  if(button) button.value = "";
+
+  const link =
+    document.getElementById(
+      "noticeLink"
+    );
+
+  if(link) link.value = "";
+
+  const active =
+    document.getElementById(
+      "noticeActive"
+    );
+
+  if(active) active.value = "1";
+
+  const title =
+    document.querySelector(
+      ".card .card-title"
+    );
+
+  if(title){
+    title.textContent =
+      "➕ 새 공지 등록";
+  }
+
+  const saveButton =
+    document.querySelector(
+      ".card .primary"
+    );
+
+  if(saveButton){
+    saveButton.textContent =
+      "공지 등록";
+  }
+}
+
+/* =========================
+   TOGGLE
+========================= */
+
+async function toggleNotice(id){
+
+  try{
+
+    await api(
+      `/api/admin/notices/${id}/toggle`,
+      {
+        method:"POST"
+      }
+    );
+
+    message(
+      "공지 노출 상태를 변경했습니다."
+    );
+
+    await loadNotices();
+
+  }catch(error){
+
+    message(error.message);
+
+  }
+}
+
+/* =========================
+   DELETE
+========================= */
+
+async function deleteNotice(id){
+
+  if(
+    !confirm(
+      "이 공지를 삭제할까요?"
+    )
+  ){
+    return;
+  }
+
+  try{
+
+    await api(
+      `/api/admin/notices/${id}`,
+      {
+        method:"DELETE"
+      }
+    );
+
+    message(
+      "공지를 삭제했습니다."
+    );
+
+    await loadNotices();
+
+  }catch(error){
+
+    message(error.message);
+
+  }
+}
+
+/* =========================
+   ESCAPE
+========================= */
+
+function escapeHtml(value){
+
+  return String(value ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+/* =========================
+   LOGOUT
+========================= */
+
+function logout(){
+
+  localStorage.removeItem(
+    "haniToken"
+  );
+
+  localStorage.removeItem(
+    "haniUser"
+  );
+
+  loginScreen();
+}
+
+/* =========================
+   START
+========================= */
+
+(async function(){
+
+  const token =
+    localStorage.getItem(
+      "haniToken"
+    );
+
+  if(!token){
+
+    loginScreen();
+
+    return;
+  }
+
+  await loadAdmin();
+
+})();
+</script>
+
+</body>
+</html>
