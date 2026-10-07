@@ -1,6 +1,10 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+/* =========================
+   BASIC RESPONSE
+========================= */
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -20,7 +24,7 @@ async function readJson(request) {
 }
 
 /* =========================
-   PASSWORD
+   BASE64
 ========================= */
 
 function bytesToBase64Url(bytes) {
@@ -37,13 +41,19 @@ function base64UrlToBytes(value) {
     .replaceAll("-", "+")
     .replaceAll("_", "/");
 
-  while (s.length % 4) s += "=";
+  while (s.length % 4) {
+    s += "=";
+  }
 
   return Uint8Array.from(
     atob(s),
     c => c.charCodeAt(0)
   );
 }
+
+/* =========================
+   PASSWORD
+========================= */
 
 async function hashPassword(password, salt) {
   const key = await crypto.subtle.importKey(
@@ -73,14 +83,14 @@ async function hashPassword(password, salt) {
 ========================= */
 
 function makeToken(user) {
-  const payload = {
-    id: user.id,
-    username: user.username,
-    created: Date.now()
-  };
-
   return bytesToBase64Url(
-    encoder.encode(JSON.stringify(payload))
+    encoder.encode(
+      JSON.stringify({
+        id: user.id,
+        username: user.username,
+        created: Date.now()
+      })
+    )
   );
 }
 
@@ -103,7 +113,8 @@ function readToken(token) {
 function publicUser(user) {
   if (!user) return null;
 
-  const evolution = Number(user.evolution || 0);
+  const evolution =
+    Number(user.evolution || 0);
 
   const titles = [
     "아기토끼",
@@ -131,41 +142,76 @@ function publicUser(user) {
     energy: 100,
     fullness: 100,
 
-    title: titles[Math.min(evolution, titles.length - 1)]
+    role: user.role || "user",
+
+    title:
+      titles[
+        Math.min(
+          evolution,
+          titles.length - 1
+        )
+      ]
   };
 }
 
 /* =========================
-   AUTH
+   CURRENT USER
 ========================= */
 
-async function getCurrentUser(request, env) {
-  const authorization =
-    request.headers.get("authorization") || "";
+async function getCurrentUser(
+  request,
+  env
+) {
 
-  if (authorization.startsWith("Bearer ")) {
-    const token = authorization.slice(7);
-    const data = readToken(token);
+  const authorization =
+    request.headers.get(
+      "authorization"
+    ) || "";
+
+  if (
+    authorization.startsWith("Bearer ")
+  ) {
+
+    const token =
+      authorization.slice(7);
+
+    const data =
+      readToken(token);
 
     if (data?.id) {
-      const user = await env.DB
-        .prepare(
-          "SELECT * FROM users WHERE id = ?"
-        )
-        .bind(data.id)
-        .first();
 
-      if (user) return user;
+      const user =
+        await env.DB
+          .prepare(
+            "SELECT * FROM users WHERE id = ?"
+          )
+          .bind(data.id)
+          .first();
+
+      if (user) {
+        return user;
+      }
     }
   }
 
+  /*
+    기존 x-user-name 방식도
+    호환해둡니다.
+  */
+
   const headerName =
-    request.headers.get("x-user-name");
+    request.headers.get(
+      "x-user-name"
+    );
 
   if (headerName) {
+
     try {
+
       const username =
-        decodeURIComponent(headerName);
+        decodeURIComponent(
+          headerName
+        );
 
       return await env.DB
         .prepare(
@@ -173,6 +219,7 @@ async function getCurrentUser(request, env) {
         )
         .bind(username)
         .first();
+
     } catch {}
   }
 
@@ -183,124 +230,179 @@ async function getCurrentUser(request, env) {
    REGISTER
 ========================= */
 
-async function register(request, env) {
-  const body = await readJson(request);
+async function register(
+  request,
+  env
+) {
+
+  const body =
+    await readJson(request);
 
   const username =
-    String(body.username || "").trim();
+    String(
+      body.username || ""
+    ).trim();
 
   const password =
-    String(body.password || "");
+    String(
+      body.password || ""
+    );
 
   if (username.length < 2) {
     return json(
-      { error: "닉네임은 2자 이상 입력해주세요." },
+      {
+        error:
+          "닉네임은 2자 이상 입력해주세요."
+      },
       400
     );
   }
 
   if (username.length > 20) {
     return json(
-      { error: "닉네임은 20자 이하로 입력해주세요." },
+      {
+        error:
+          "닉네임은 20자 이하로 입력해주세요."
+      },
       400
     );
   }
 
   if (password.length < 4) {
     return json(
-      { error: "비밀번호는 4자 이상 입력해주세요." },
+      {
+        error:
+          "비밀번호는 4자 이상 입력해주세요."
+      },
       400
     );
   }
 
-  const existing = await env.DB
-    .prepare(
-      "SELECT id FROM users WHERE username = ?"
-    )
-    .bind(username)
-    .first();
+  const existing =
+    await env.DB
+      .prepare(
+        "SELECT id FROM users WHERE username = ?"
+      )
+      .bind(username)
+      .first();
 
   if (existing) {
     return json(
-      { error: "이미 사용 중인 닉네임입니다." },
+      {
+        error:
+          "이미 사용 중인 닉네임입니다."
+      },
       409
     );
   }
 
+  const salt =
+    crypto.randomUUID();
+
+  const passwordHash =
+    await hashPassword(
+      password,
+      salt
+    );
+
   /*
-    기존 DB 구조를 그대로 사용하기 위해
-    password_hash 하나에 salt + hash를 저장합니다.
+    기존 users 테이블을 최대한
+    그대로 사용하기 위해
+    salt:hash 형태로 저장합니다.
   */
 
-  const salt = crypto.randomUUID();
-
-  const hash =
-    await hashPassword(password, salt);
-
   const storedPassword =
-    `${salt}:${hash}`;
+    `${salt}:${passwordHash}`;
 
-  const result = await env.DB
-    .prepare(`
-      INSERT INTO users
-      (
-        username,
-        password_hash,
-        points,
-        level,
-        xp,
-        body_size,
-        evolution,
-        wins,
-        losses
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .bind(
-      username,
-      storedPassword,
-      10000,
-      1,
-      0,
-      0,
-      0,
-      0,
-      0
-    )
-    .run();
+  try {
 
-  const user = await env.DB
-    .prepare(
-      "SELECT * FROM users WHERE id = ?"
-    )
-    .bind(result.meta.last_row_id)
-    .first();
+    const result =
+      await env.DB
+        .prepare(`
+          INSERT INTO users
+          (
+            username,
+            password_hash,
+            points,
+            level,
+            xp,
+            body_size,
+            evolution,
+            wins,
+            losses
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .bind(
+          username,
+          storedPassword,
+          10000,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        )
+        .run();
 
-  return json({
-    user: publicUser(user),
-    token: makeToken(user)
-  });
+    const user =
+      await env.DB
+        .prepare(
+          "SELECT * FROM users WHERE id = ?"
+        )
+        .bind(
+          result.meta.last_row_id
+        )
+        .first();
+
+    return json({
+      user: publicUser(user),
+      token: makeToken(user)
+    });
+
+  } catch (error) {
+
+    return json(
+      {
+        error:
+          "회원가입 중 오류가 발생했습니다.",
+        detail: String(error)
+      },
+      500
+    );
+  }
 }
 
 /* =========================
    LOGIN
 ========================= */
 
-async function login(request, env) {
-  const body = await readJson(request);
+async function login(
+  request,
+  env
+) {
+
+  const body =
+    await readJson(request);
 
   const username =
-    String(body.username || "").trim();
+    String(
+      body.username || ""
+    ).trim();
 
   const password =
-    String(body.password || "");
+    String(
+      body.password || ""
+    );
 
-  const user = await env.DB
-    .prepare(
-      "SELECT * FROM users WHERE username = ?"
-    )
-    .bind(username)
-    .first();
+  const user =
+    await env.DB
+      .prepare(
+        "SELECT * FROM users WHERE username = ?"
+      )
+      .bind(username)
+      .first();
 
   if (!user) {
     return json(
@@ -313,37 +415,53 @@ async function login(request, env) {
   }
 
   const stored =
-    String(user.password_hash || "");
+    String(
+      user.password_hash || ""
+    );
 
   let verified = false;
 
   /*
-    새 계정:
+    신규 계정
     salt:hash
   */
 
   if (stored.includes(":")) {
-    const index = stored.indexOf(":");
+
+    const index =
+      stored.indexOf(":");
 
     const salt =
-      stored.slice(0, index);
+      stored.slice(
+        0,
+        index
+      );
 
     const savedHash =
-      stored.slice(index + 1);
+      stored.slice(
+        index + 1
+      );
 
     const currentHash =
-      await hashPassword(password, salt);
+      await hashPassword(
+        password,
+        salt
+      );
 
     verified =
       currentHash === savedHash;
+
   } else {
+
     /*
-      기존 계정과의 호환을 위해
-      username을 salt로 사용하는 방식도 시도.
+      기존 계정 호환
     */
 
     const currentHash =
-      await hashPassword(password, username);
+      await hashPassword(
+        password,
+        username
+      );
 
     verified =
       currentHash === stored;
@@ -369,13 +487,23 @@ async function login(request, env) {
    ME
 ========================= */
 
-async function me(request, env) {
+async function me(
+  request,
+  env
+) {
+
   const user =
-    await getCurrentUser(request, env);
+    await getCurrentUser(
+      request,
+      env
+    );
 
   if (!user) {
     return json(
-      { error: "로그인이 필요합니다." },
+      {
+        error:
+          "로그인이 필요합니다."
+      },
       401
     );
   }
@@ -389,21 +517,34 @@ async function me(request, env) {
    ACTION
 ========================= */
 
-async function action(request, env) {
+async function action(
+  request,
+  env
+) {
+
   const user =
-    await getCurrentUser(request, env);
+    await getCurrentUser(
+      request,
+      env
+    );
 
   if (!user) {
     return json(
-      { error: "로그인이 필요합니다." },
+      {
+        error:
+          "로그인이 필요합니다."
+      },
       401
     );
   }
 
-  const body = await readJson(request);
+  const body =
+    await readJson(request);
 
   const actionType =
-    String(body.action || "");
+    String(
+      body.action || ""
+    );
 
   let points =
     Number(user.points || 0);
@@ -420,49 +561,54 @@ async function action(request, env) {
   let message = "";
 
   if (actionType === "work") {
+
     points += 500;
     xp += 25;
 
     message =
       "💼 일해서 500P와 XP를 얻었어요!";
-  }
 
-  else if (actionType === "cook") {
+  } else if (
+    actionType === "cook"
+  ) {
+
     xp += 15;
 
     message =
       "🍳 요리를 완료했어요!";
-  }
 
-  else if (actionType === "rest") {
+  } else if (
+    actionType === "rest"
+  ) {
+
     xp += 10;
 
     message =
       "🛋️ 푹 쉬었어요!";
-  }
 
-  else {
+  } else {
+
     return json(
-      { error: "알 수 없는 행동입니다." },
+      {
+        error:
+          "알 수 없는 행동입니다."
+      },
       400
     );
   }
 
-  /*
-    레벨업
-  */
-
   while (
-    xp >= 100 + (level - 1) * 80
+    xp >=
+    100 + (level - 1) * 80
   ) {
-    xp -= 100 + (level - 1) * 80;
+
+    xp -=
+      100 + (level - 1) * 80;
+
     level++;
 
-    /*
-      5레벨마다 진화
-    */
-
     if (level % 5 === 0) {
+
       evolution++;
 
       message +=
@@ -508,6 +654,7 @@ async function action(request, env) {
 ========================= */
 
 async function ranking(env) {
+
   const points =
     await env.DB
       .prepare(`
@@ -528,7 +675,8 @@ async function ranking(env) {
           level,
           xp
         FROM users
-        ORDER BY level DESC, xp DESC
+        ORDER BY level DESC,
+                 xp DESC
         LIMIT 5
       `)
       .all();
@@ -547,9 +695,14 @@ async function ranking(env) {
 
   return json({
     rankings: {
-      points: points.results || [],
-      level: level.results || [],
-      games: games.results || []
+      points:
+        points.results || [],
+
+      level:
+        level.results || [],
+
+      games:
+        games.results || []
     }
   });
 }
@@ -558,19 +711,28 @@ async function ranking(env) {
    ROOMS
 ========================= */
 
-async function rooms(request, env, user) {
+async function rooms(
+  request,
+  env,
+  user
+) {
 
-  if (request.method === "GET") {
+  if (
+    request.method === "GET"
+  ) {
 
     const url =
       new URL(request.url);
 
     const game =
-      url.searchParams.get("game");
+      url.searchParams.get(
+        "game"
+      );
 
     let result;
 
     if (game) {
+
       result =
         await env.DB
           .prepare(`
@@ -589,9 +751,9 @@ async function rooms(request, env, user) {
           `)
           .bind(game)
           .all();
-    }
 
-    else {
+    } else {
+
       result =
         await env.DB
           .prepare(`
@@ -611,22 +773,29 @@ async function rooms(request, env, user) {
     }
 
     return json({
-      rooms: result.results || []
+      rooms:
+        result.results || []
     });
   }
 
-  if (request.method === "POST") {
+  if (
+    request.method === "POST"
+  ) {
 
     const body =
       await readJson(request);
 
     const game =
-      String(body.game || "omok");
+      String(
+        body.game || "omok"
+      );
 
     const stake =
       Math.max(
         0,
-        Number(body.stake || 0)
+        Number(
+          body.stake || 0
+        )
       );
 
     const allowed = [
@@ -635,23 +804,38 @@ async function rooms(request, env, user) {
       "shisen"
     ];
 
-    if (!allowed.includes(game)) {
+    if (
+      !allowed.includes(game)
+    ) {
       return json(
-        { error: "지원하지 않는 게임입니다." },
+        {
+          error:
+            "지원하지 않는 게임입니다."
+        },
         400
       );
     }
 
-    if (stake > Number(user.points || 0)) {
+    if (
+      stake >
+      Number(user.points || 0)
+    ) {
       return json(
-        { error: "포인트가 부족합니다." },
+        {
+          error:
+            "포인트가 부족합니다."
+        },
         400
       );
     }
 
     let code = "";
 
-    for (let i = 0; i < 10; i++) {
+    for (
+      let i = 0;
+      i < 10;
+      i++
+    ) {
 
       code =
         Math.random()
@@ -704,7 +888,10 @@ async function rooms(request, env, user) {
   }
 
   return json(
-    { error: "지원하지 않는 요청입니다." },
+    {
+      error:
+        "지원하지 않는 요청입니다."
+    },
     405
   );
 }
@@ -730,21 +917,29 @@ async function joinRoom(
 
   if (!room) {
     return json(
-      { error: "방을 찾을 수 없습니다." },
+      {
+        error:
+          "방을 찾을 수 없습니다."
+      },
       404
     );
   }
 
   if (room.guest_id) {
     return json(
-      { error: "이미 사람이 들어와 있는 방입니다." },
+      {
+        error:
+          "이미 사람이 들어와 있는 방입니다."
+      },
       409
     );
   }
 
-  if (room.host_id === user.id) {
+  if (
+    room.host_id === user.id
+  ) {
     return json({
-      ok: true,
+      ok:true,
       room
     });
   }
@@ -772,8 +967,8 @@ async function joinRoom(
       .first();
 
   return json({
-    ok: true,
-    room: updated
+    ok:true,
+    room:updated
   });
 }
 
@@ -796,7 +991,10 @@ async function roomState(
 
   if (!room) {
     return json(
-      { error: "방을 찾을 수 없습니다." },
+      {
+        error:
+          "방을 찾을 수 없습니다."
+      },
       404
     );
   }
@@ -806,30 +1004,543 @@ async function roomState(
   });
 }
 
+/* =========================================================
+   ADMIN
+   ========================================================= */
+
+/*
+  관리자 여부 확인
+
+  role 컬럼이 없는 기존 DB에서는
+  관리자 API 사용 전에 D1 마이그레이션이 필요합니다.
+*/
+
+async function requireAdmin(
+  request,
+  env
+) {
+
+  const user =
+    await getCurrentUser(
+      request,
+      env
+    );
+
+  if (!user) {
+
+    return {
+      error:
+        json(
+          {
+            error:
+              "로그인이 필요합니다."
+          },
+          401
+        )
+    };
+  }
+
+  if (
+    user.role !== "admin"
+  ) {
+
+    return {
+      error:
+        json(
+          {
+            error:
+              "관리자 권한이 없습니다."
+          },
+          403
+        )
+    };
+  }
+
+  return {
+    user
+  };
+}
+
+/* =========================
+   ADMIN NOTICE LIST
+========================= */
+
+async function adminNoticeList(
+  request,
+  env
+) {
+
+  const check =
+    await requireAdmin(
+      request,
+      env
+    );
+
+  if (check.error) {
+    return check.error;
+  }
+
+  try {
+
+    const result =
+      await env.DB
+        .prepare(`
+          SELECT
+            id,
+            message,
+            button_text,
+            button_link,
+            active,
+            sort_order,
+            created_at,
+            updated_at
+          FROM notices
+          ORDER BY
+            sort_order ASC,
+            id DESC
+        `)
+        .all();
+
+    return json({
+      notices:
+        result.results || []
+    });
+
+  } catch (error) {
+
+    return json(
+      {
+        error:
+          "공지 테이블이 아직 준비되지 않았습니다.",
+        detail:
+          String(error)
+      },
+      500
+    );
+  }
+}
+
+/* =========================
+   ADMIN NOTICE CREATE
+========================= */
+
+async function adminNoticeCreate(
+  request,
+  env
+) {
+
+  const check =
+    await requireAdmin(
+      request,
+      env
+    );
+
+  if (check.error) {
+    return check.error;
+  }
+
+  const body =
+    await readJson(request);
+
+  const message =
+    String(
+      body.message || ""
+    ).trim();
+
+  const buttonText =
+    String(
+      body.button_text || ""
+    ).trim();
+
+  const buttonLink =
+    String(
+      body.button_link || ""
+    ).trim();
+
+  const active =
+    Number(
+      body.active ?? 1
+    ) === 1
+      ? 1
+      : 0;
+
+  if (!message) {
+    return json(
+      {
+        error:
+          "공지 내용을 입력해주세요."
+      },
+      400
+    );
+  }
+
+  try {
+
+    const max =
+      await env.DB
+        .prepare(`
+          SELECT
+            COALESCE(
+              MAX(sort_order),
+              0
+            ) AS max_order
+          FROM notices
+        `)
+        .first();
+
+    const sortOrder =
+      Number(
+        max?.max_order || 0
+      ) + 1;
+
+    const result =
+      await env.DB
+        .prepare(`
+          INSERT INTO notices
+          (
+            message,
+            button_text,
+            button_link,
+            active,
+            sort_order
+          )
+          VALUES (?, ?, ?, ?, ?)
+        `)
+        .bind(
+          message,
+          buttonText,
+          buttonLink,
+          active,
+          sortOrder
+        )
+        .run();
+
+    const notice =
+      await env.DB
+        .prepare(
+          "SELECT * FROM notices WHERE id = ?"
+        )
+        .bind(
+          result.meta.last_row_id
+        )
+        .first();
+
+    return json({
+      notice
+    });
+
+  } catch (error) {
+
+    return json(
+      {
+        error:
+          "공지 등록에 실패했습니다.",
+        detail:
+          String(error)
+      },
+      500
+    );
+  }
+}
+
+/* =========================
+   ADMIN NOTICE UPDATE
+========================= */
+
+async function adminNoticeUpdate(
+  request,
+  env,
+  id
+) {
+
+  const check =
+    await requireAdmin(
+      request,
+      env
+    );
+
+  if (check.error) {
+    return check.error;
+  }
+
+  const body =
+    await readJson(request);
+
+  const message =
+    String(
+      body.message || ""
+    ).trim();
+
+  const buttonText =
+    String(
+      body.button_text || ""
+    ).trim();
+
+  const buttonLink =
+    String(
+      body.button_link || ""
+    ).trim();
+
+  const active =
+    Number(
+      body.active ?? 1
+    ) === 1
+      ? 1
+      : 0;
+
+  if (!message) {
+    return json(
+      {
+        error:
+          "공지 내용을 입력해주세요."
+      },
+      400
+    );
+  }
+
+  try {
+
+    await env.DB
+      .prepare(`
+        UPDATE notices
+        SET
+          message = ?,
+          button_text = ?,
+          button_link = ?,
+          active = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `)
+      .bind(
+        message,
+        buttonText,
+        buttonLink,
+        active,
+        id
+      )
+      .run();
+
+    const notice =
+      await env.DB
+        .prepare(
+          "SELECT * FROM notices WHERE id = ?"
+        )
+        .bind(id)
+        .first();
+
+    return json({
+      notice
+    });
+
+  } catch (error) {
+
+    return json(
+      {
+        error:
+          "공지 수정에 실패했습니다.",
+        detail:
+          String(error)
+      },
+      500
+    );
+  }
+}
+
+/* =========================
+   ADMIN NOTICE TOGGLE
+========================= */
+
+async function adminNoticeToggle(
+  request,
+  env,
+  id
+) {
+
+  const check =
+    await requireAdmin(
+      request,
+      env
+    );
+
+  if (check.error) {
+    return check.error;
+  }
+
+  try {
+
+    const notice =
+      await env.DB
+        .prepare(
+          "SELECT active FROM notices WHERE id = ?"
+        )
+        .bind(id)
+        .first();
+
+    if (!notice) {
+      return json(
+        {
+          error:
+            "공지를 찾을 수 없습니다."
+        },
+        404
+      );
+    }
+
+    const next =
+      Number(notice.active) === 1
+        ? 0
+        : 1;
+
+    await env.DB
+      .prepare(`
+        UPDATE notices
+        SET
+          active = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `)
+      .bind(
+        next,
+        id
+      )
+      .run();
+
+    return json({
+      active:next
+    });
+
+  } catch (error) {
+
+    return json(
+      {
+        error:
+          "공지 상태 변경에 실패했습니다.",
+        detail:
+          String(error)
+      },
+      500
+    );
+  }
+}
+
+/* =========================
+   ADMIN NOTICE DELETE
+========================= */
+
+async function adminNoticeDelete(
+  request,
+  env,
+  id
+) {
+
+  const check =
+    await requireAdmin(
+      request,
+      env
+    );
+
+  if (check.error) {
+    return check.error;
+  }
+
+  try {
+
+    await env.DB
+      .prepare(
+        "DELETE FROM notices WHERE id = ?"
+      )
+      .bind(id)
+      .run();
+
+    return json({
+      ok:true
+    });
+
+  } catch (error) {
+
+    return json(
+      {
+        error:
+          "공지 삭제에 실패했습니다.",
+        detail:
+          String(error)
+      },
+      500
+    );
+  }
+}
+
+/* =========================
+   PUBLIC NOTICE
+========================= */
+
+async function publicNotice(
+  env
+) {
+
+  try {
+
+    const result =
+      await env.DB
+        .prepare(`
+          SELECT
+            id,
+            message,
+            button_text,
+            button_link
+          FROM notices
+          WHERE active = 1
+          ORDER BY
+            sort_order ASC,
+            id DESC
+          LIMIT 5
+        `)
+        .all();
+
+    return json({
+      notices:
+        result.results || []
+    });
+
+  } catch {
+
+    /*
+      아직 D1 테이블을 만들기 전에도
+      메인 사이트가 죽지 않도록
+      빈 배열을 반환합니다.
+    */
+
+    return json({
+      notices:[]
+    });
+  }
+}
+
 /* =========================
    DURABLE OBJECT
 ========================= */
 
 export class GameRoom {
 
-  constructor(state, env) {
+  constructor(
+    state,
+    env
+  ) {
+
     this.state = state;
     this.env = env;
-    this.sockets = new Set();
+
+    this.sockets =
+      new Set();
   }
 
   async fetch(request) {
 
-    const url =
-      new URL(request.url);
-
-    /*
-      WebSocket 연결
-    */
-
     if (
-      request.headers.get("Upgrade")
-        ?.toLowerCase() === "websocket"
+      request.headers.get(
+        "Upgrade"
+      )?.toLowerCase()
+      === "websocket"
     ) {
 
       const pair =
@@ -843,19 +1554,25 @@ export class GameRoom {
 
       server.accept();
 
-      this.sockets.add(server);
+      this.sockets.add(
+        server
+      );
 
       server.addEventListener(
         "close",
         () => {
-          this.sockets.delete(server);
+          this.sockets.delete(
+            server
+          );
         }
       );
 
       server.addEventListener(
         "error",
         () => {
-          this.sockets.delete(server);
+          this.sockets.delete(
+            server
+          );
         }
       );
 
@@ -866,14 +1583,20 @@ export class GameRoom {
           let data;
 
           try {
+
             data =
-              JSON.parse(event.data);
+              JSON.parse(
+                event.data
+              );
+
           } catch {
+
             return;
           }
 
           this.broadcast({
-            type: "message",
+            type:
+              "message",
             data
           });
         }
@@ -881,32 +1604,25 @@ export class GameRoom {
 
       server.send(
         JSON.stringify({
-          type: "connected",
-          message: "GameRoom 연결 성공"
+          type:
+            "connected",
+          message:
+            "GameRoom 연결 성공"
         })
       );
 
-      return new Response(null, {
-        status: 101,
-        webSocket: client
-      });
-    }
-
-    /*
-      일반 HTTP 요청
-    */
-
-    if (request.method === "GET") {
-
-      return json({
-        ok: true,
-        type: "GameRoom",
-        message: "게임방 연결 성공"
-      });
+      return new Response(
+        null,
+        {
+          status:101,
+          webSocket:client
+        }
+      );
     }
 
     return json({
-      ok: true
+      ok:true,
+      type:"GameRoom"
     });
   }
 
@@ -915,12 +1631,22 @@ export class GameRoom {
     const message =
       JSON.stringify(data);
 
-    for (const socket of this.sockets) {
+    for (
+      const socket
+      of this.sockets
+    ) {
 
       try {
-        socket.send(message);
+
+        socket.send(
+          message
+        );
+
       } catch {
-        this.sockets.delete(socket);
+
+        this.sockets.delete(
+          socket
+        );
       }
     }
   }
@@ -932,38 +1658,156 @@ export class GameRoom {
 
 export default {
 
-  async fetch(request, env) {
+  async fetch(
+    request,
+    env
+  ) {
 
     const url =
-      new URL(request.url);
+      new URL(
+        request.url
+      );
 
     /*
-      API
+      PUBLIC NOTICE
+      로그인 없이 접근 가능
     */
 
     if (
-      url.pathname.startsWith("/api/")
+      url.pathname ===
+      "/api/notices"
+      &&
+      request.method === "GET"
+    ) {
+
+      return publicNotice(
+        env
+      );
+    }
+
+    /*
+      REGISTER
+    */
+
+    if (
+      url.pathname ===
+      "/api/register"
+      &&
+      request.method === "POST"
+    ) {
+
+      return register(
+        request,
+        env
+      );
+    }
+
+    /*
+      LOGIN
+    */
+
+    if (
+      url.pathname ===
+      "/api/login"
+      &&
+      request.method === "POST"
+    ) {
+
+      return login(
+        request,
+        env
+      );
+    }
+
+    /*
+      ADMIN NOTICE
+    */
+
+    if (
+      url.pathname ===
+      "/api/admin/notices"
     ) {
 
       if (
-        request.method === "POST" &&
-        url.pathname === "/api/register"
+        request.method === "GET"
       ) {
-        return register(
+
+        return adminNoticeList(
           request,
           env
         );
       }
 
       if (
-        request.method === "POST" &&
-        url.pathname === "/api/login"
+        request.method === "POST"
       ) {
-        return login(
+
+        return adminNoticeCreate(
           request,
           env
         );
       }
+    }
+
+    const updateMatch =
+      url.pathname.match(
+        /^\/api\/admin\/notices\/(\d+)$/
+      );
+
+    if (updateMatch) {
+
+      const id =
+        updateMatch[1];
+
+      if (
+        request.method === "PUT"
+      ) {
+
+        return adminNoticeUpdate(
+          request,
+          env,
+          id
+        );
+      }
+
+      if (
+        request.method === "DELETE"
+      ) {
+
+        return adminNoticeDelete(
+          request,
+          env,
+          id
+        );
+      }
+    }
+
+    const toggleMatch =
+      url.pathname.match(
+        /^\/api\/admin\/notices\/(\d+)\/toggle$/
+      );
+
+    if (
+      toggleMatch &&
+      request.method === "POST"
+    ) {
+
+      return adminNoticeToggle(
+        request,
+        env,
+        toggleMatch[1]
+      );
+    }
+
+    /*
+      LOGIN REQUIRED
+    */
+
+    if (
+      url.pathname.startsWith(
+        "/api/"
+      )
+    ) {
 
       const user =
         await getCurrentUser(
@@ -972,6 +1816,7 @@ export default {
         );
 
       if (!user) {
+
         return json(
           {
             error:
@@ -981,33 +1826,61 @@ export default {
         );
       }
 
-      if (
-        url.pathname === "/api/me"
-      ) {
-        return me(
-          request,
-          env
-        );
-      }
+      /*
+        ME
+      */
 
       if (
-        url.pathname === "/api/action"
+        url.pathname ===
+        "/api/me"
       ) {
+
+        return json({
+          user:
+            publicUser(user)
+        });
+      }
+
+      /*
+        ACTION
+      */
+
+      if (
+        url.pathname ===
+        "/api/action"
+        &&
+        request.method === "POST"
+      ) {
+
         return action(
           request,
           env
         );
       }
 
-      if (
-        url.pathname === "/api/ranking"
-      ) {
-        return ranking(env);
-      }
+      /*
+        RANKING
+      */
 
       if (
-        url.pathname === "/api/rooms"
+        url.pathname ===
+        "/api/ranking"
       ) {
+
+        return ranking(
+          env
+        );
+      }
+
+      /*
+        ROOMS
+      */
+
+      if (
+        url.pathname ===
+        "/api/rooms"
+      ) {
+
         return rooms(
           request,
           env,
@@ -1015,12 +1888,20 @@ export default {
         );
       }
 
+      /*
+        JOIN ROOM
+      */
+
       const joinMatch =
         url.pathname.match(
           /^\/api\/rooms\/([^/]+)\/join$/
         );
 
-      if (joinMatch) {
+      if (
+        joinMatch &&
+        request.method === "POST"
+      ) {
+
         return joinRoom(
           request,
           env,
@@ -1029,23 +1910,28 @@ export default {
         );
       }
 
-      const stateMatch =
+      /*
+        ROOM STATE
+      */
+
+      const roomMatch =
         url.pathname.match(
           /^\/api\/rooms\/([^/]+)$/
         );
 
       if (
-        stateMatch &&
+        roomMatch &&
         request.method === "GET"
       ) {
+
         return roomState(
           env,
-          stateMatch[1]
+          roomMatch[1]
         );
       }
 
       /*
-        Durable Object WebSocket
+        WEBSOCKET
       */
 
       const wsMatch =
@@ -1063,22 +1949,18 @@ export default {
         const room =
           env.GameRoom.get(id);
 
-        return room.fetch(request);
+        return room.fetch(
+          request
+        );
       }
-
-      return json(
-        {
-          error:
-            "API를 찾을 수 없습니다."
-        },
-        404
-      );
     }
 
     /*
-      정적 파일
+      STATIC ASSETS
     */
 
-    return env.ASSETS.fetch(request);
+    return env.ASSETS.fetch(
+      request
+    );
   }
 };
