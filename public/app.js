@@ -1,8 +1,24 @@
 const GAMES={
-  minesweeper:{name:"지뢰찾기",icon:"💣",desc:"숫자를 보고 지뢰를 피하세요. 깃발과 연쇄 오픈까지 지원합니다."},
-  shisen:{name:"사천성",icon:"🀄",desc:"같은 타일을 최대 두 번 꺾어 연결하면 제거됩니다."},
-  omok:{name:"오목",icon:"⚫",desc:"15×15 바둑판에서 먼저 5목을 완성하세요."},
-  tetris:{name:"싱글 테트리스",icon:"🧱",desc:"블록을 회전·이동해 줄을 지우고 최고점에 도전하세요."}
+  minesweeper:{
+    name:"지뢰찾기",
+    icon:"💣",
+    desc:"숫자를 보고 지뢰를 피하세요. 깃발과 연쇄 오픈까지 지원합니다."
+  },
+  shisen:{
+    name:"사천성",
+    icon:"🀄",
+    desc:"같은 타일을 최대 두 번 꺾어 연결하면 제거됩니다."
+  },
+  omok:{
+    name:"오목",
+    icon:"⚫",
+    desc:"15×15 바둑판에서 먼저 5목을 완성하세요."
+  },
+  tetris:{
+    name:"싱글 테트리스",
+    icon:"🧱",
+    desc:"블록을 회전·이동해 줄을 지우고 최고점에 도전하세요."
+  }
 };
 
 let S={
@@ -75,7 +91,6 @@ function logout(){
   localStorage.removeItem("haniToken");
 
   S.user=null;
-
   render();
 }
 
@@ -91,12 +106,12 @@ function bunny(evo){
     "👑🐰",
     "💎🐰",
     "🌟🐰"
-  ][Math.min(evo,5)];
+  ][Math.min(evo||0,5)];
 }
 
 
 /* =========================================================
-   관리자 공지
+   공지
 ========================================================= */
 
 function notice(){
@@ -117,10 +132,7 @@ function notice(){
       </span>
 
       <button onclick="noticeAction()">
-        ${esc(
-          n.button_text||
-          "확인"
-        )}
+        ${esc(n.button_text||"확인")}
       </button>
     </div>
   `;
@@ -133,9 +145,7 @@ function noticeAction(){
       window.HANI_NOTICE?.button_link||""
     ).trim();
 
-  if(
-    /^https?:\/\//i.test(url)
-  ){
+  if(/^https?:\/\//i.test(url)){
 
     window.open(
       url,
@@ -145,9 +155,8 @@ function noticeAction(){
 
   }else{
 
-    toast(
-      "공지사항을 확인해주세요 💙"
-    );
+    toast("공지사항을 확인해주세요 💙");
+
   }
 }
 
@@ -270,6 +279,7 @@ function loginPage(){
 
         <div class="field">
           <label>닉네임</label>
+
           <input
             id="loginName"
             placeholder="닉네임"
@@ -278,6 +288,7 @@ function loginPage(){
 
         <div class="field">
           <label>비밀번호</label>
+
           <input
             id="loginPw"
             type="password"
@@ -344,9 +355,8 @@ async function login(){
 
   }catch(e){
 
-    toast(
-      e.message
-    );
+    toast(e.message);
+
   }
 }
 
@@ -400,9 +410,8 @@ async function register(){
 
   }catch(e){
 
-    toast(
-      e.message
-    );
+    toast(e.message);
+
   }
 }
 
@@ -456,6 +465,7 @@ async function home(){
   }catch(e){
 
     return logout();
+
   }
 
   const u=S.user;
@@ -481,9 +491,11 @@ async function home(){
         <div class="hero-main">
 
           <div class="bunny-box">
+
             <div class="bunny">
               ${bunny(u.evolution)}
             </div>
+
           </div>
 
           <div>
@@ -504,7 +516,7 @@ async function home(){
               </span>
 
               <span class="tag">
-                ✨ ${esc(u.title)}
+                ✨ ${esc(u.title||"초보 하니")}
               </span>
 
               <span class="tag">
@@ -528,7 +540,7 @@ async function home(){
           <div class="stat">
             <small>포인트</small>
             <strong>
-              ${u.points.toLocaleString()}P
+              ${Number(u.points||0).toLocaleString()}P
             </strong>
           </div>
 
@@ -542,14 +554,14 @@ async function home(){
           <div class="stat">
             <small>체력</small>
             <strong>
-              ${u.energy}%
+              ${u.energy??100}%
             </strong>
           </div>
 
           <div class="stat">
             <small>포만감</small>
             <strong>
-              ${u.fullness}%
+              ${u.fullness??100}%
             </strong>
           </div>
 
@@ -563,10 +575,7 @@ async function home(){
         >
 
           Lv.${u.level+1}까지
-          ${Math.max(
-            0,
-            need-u.xp
-          )} XP 남음
+          ${Math.max(0,need-u.xp)} XP 남음
 
           <span style="float:right">
             ${u.xp} / ${need}
@@ -575,9 +584,7 @@ async function home(){
         </div>
 
         <div class="progress">
-          <i
-            style="width:${pct}%"
-          ></i>
+          <i style="width:${pct}%"></i>
         </div>
 
       </section>
@@ -586,7 +593,6 @@ async function home(){
       <div class="section-title">
         오늘의 생활 행동
       </div>
-
 
       <div class="action-grid">
 
@@ -622,7 +628,6 @@ async function home(){
         생활과 게임을 하면서
         기록을 채워보세요.
       </div>
-
 
       <div
         class="card"
@@ -741,17 +746,14 @@ async function doAction(a){
 
     S.user=d.user;
 
-    toast(
-      d.message
-    );
+    toast(d.message);
 
     home();
 
   }catch(e){
 
-    toast(
-      e.message
-    );
+    toast(e.message);
+
   }
 }
 
@@ -774,14 +776,12 @@ async function games(){
         대전해 보세요.
       </div>
 
-
       <div
         class="section-title"
         style="font-size:21px"
       >
         포인트 개인게임
       </div>
-
 
       <div class="game-grid">
 
@@ -796,7 +796,6 @@ async function games(){
 
       </div>
 
-
       <div
         class="section-title"
         style="font-size:21px"
@@ -808,22 +807,17 @@ async function games(){
         방을 만들고 친구와 함께 플레이하세요.
       </div>
 
-
       ${
         [
-          "오목",
-          "테트리스 대전",
-          "사천성 대전"
+          ["omok","오목"],
+          ["tetris","테트리스 대전"],
+          ["shisen","사천성 대전"]
         ]
         .map(
-          (x,i)=>
+          x=>
             roomSection(
-              [
-                "omok",
-                "tetris",
-                "shisen"
-              ][i],
-              x
+              x[0],
+              x[1]
             )
         )
         .join("")
@@ -903,61 +897,30 @@ function roomSection(
 
       </div>
 
-
       <div
         class="rooms"
         id="rooms-${game}"
       >
 
-        <div class="card room">
+        ${[1,2,3].map(n=>`
 
-          <div>
-            <h4>1번방</h4>
-            <p>비어있음</p>
+          <div class="card room">
+
+            <div>
+              <h4>${n}번방</h4>
+              <p>비어있음</p>
+            </div>
+
+            <button
+              class="secondary"
+              onclick="createRoom('${game}')"
+            >
+              입장
+            </button>
+
           </div>
 
-          <button
-            class="secondary"
-            onclick="createRoom('${game}')"
-          >
-            입장
-          </button>
-
-        </div>
-
-
-        <div class="card room">
-
-          <div>
-            <h4>2번방</h4>
-            <p>비어있음</p>
-          </div>
-
-          <button
-            class="secondary"
-            onclick="createRoom('${game}')"
-          >
-            입장
-          </button>
-
-        </div>
-
-
-        <div class="card room">
-
-          <div>
-            <h4>3번방</h4>
-            <p>비어있음</p>
-          </div>
-
-          <button
-            class="secondary"
-            onclick="createRoom('${game}')"
-          >
-            입장
-          </button>
-
-        </div>
+        `).join("")}
 
       </div>
 
@@ -965,9 +928,7 @@ function roomSection(
   `;
 }
 
-async function createRoom(
-  game
-){
+async function createRoom(game){
 
   try{
 
@@ -994,9 +955,8 @@ async function createRoom(
 
   }catch(e){
 
-    toast(
-      e.message
-    );
+    toast(e.message);
+
   }
 }
 
@@ -1014,9 +974,7 @@ async function openRoom(
   renderModal();
 }
 
-async function renderRooms(
-  game
-){
+async function renderRooms(game){
 
   try{
 
@@ -1086,9 +1044,7 @@ async function ranks(){
                 </span>
 
                 <span class="rank-value">
-                  ${esc(
-                    String(u[key])
-                  )}
+                  ${esc(String(u[key]??0))}
                 </span>
 
               </div>
@@ -1140,11 +1096,9 @@ async function ranks(){
 
       </div>
 
-
       <div class="section-title">
         게임별 순위
       </div>
-
 
       <div class="rank-grid">
 
@@ -1281,11 +1235,10 @@ async function profile(){
         </h2>
 
         <p class="center muted">
-          ${esc(u.title)}
+          ${esc(u.title||"초보 하니")}
           ·
           ${u.evolution+1}세대
         </p>
-
 
         <div class="stats">
 
@@ -1302,7 +1255,7 @@ async function profile(){
           <div class="stat">
             <small>포인트</small>
             <strong>
-              ${u.points.toLocaleString()}
+              ${Number(u.points||0).toLocaleString()}
             </strong>
           </div>
 
@@ -1316,7 +1269,6 @@ async function profile(){
         </div>
 
       </div>
-
 
       <div class="section-title">
         계정
@@ -1337,9 +1289,7 @@ async function profile(){
    MODAL
 ========================================================= */
 
-function openModal(
-  type
-){
+function openModal(type){
 
   S.modal={
     type
@@ -1394,8 +1344,8 @@ function renderModal(){
             <h2>
               ${
                 g
-                ?g.icon+" "+g.name
-                :"게임방"
+                  ?g.icon+" "+g.name
+                  :"게임방"
               }
             </h2>
 
@@ -1431,9 +1381,12 @@ function renderModal(){
     );
 }
 
-function startGame(
-  type
-){
+
+/* =========================================================
+   GAME START
+========================================================= */
+
+function startGame(type){
 
   S.modal=null;
 
@@ -1489,6 +1442,7 @@ function gamePage(
 
 /* =========================================================
    MINESWEEPER
+   모바일 열기 / 깃발 / 롱프레스 지원
 ========================================================= */
 
 function minesweeper(){
@@ -1515,6 +1469,12 @@ function minesweeper(){
     );
 
   let done=false;
+
+  let mobileMode="open";
+
+  let touchTimer=null;
+  let touchMoved=false;
+  let suppressClick=false;
 
   let mines=[];
 
@@ -1680,6 +1640,101 @@ function minesweeper(){
   }
 
 
+  function setMobileMode(
+    mode
+  ){
+
+    mobileMode=mode;
+
+    renderBoard();
+  }
+
+
+  function touchStart(
+    r,
+    c
+  ){
+
+    touchMoved=false;
+
+    clearTimeout(
+      touchTimer
+    );
+
+    touchTimer=
+      setTimeout(
+        ()=>{
+
+          if(
+            !touchMoved
+          ){
+
+            suppressClick=true;
+
+            toggleFlag(
+              r,
+              c
+            );
+          }
+
+        },
+        500
+      );
+  }
+
+
+  function touchMove(){
+
+    touchMoved=true;
+
+    clearTimeout(
+      touchTimer
+    );
+  }
+
+
+  function touchEnd(){
+
+    clearTimeout(
+      touchTimer
+    );
+  }
+
+
+  function cellClick(
+    r,
+    c
+  ){
+
+    if(
+      suppressClick
+    ){
+
+      suppressClick=false;
+
+      return;
+    }
+
+    if(
+      mobileMode==="flag"
+    ){
+
+      toggleFlag(
+        r,
+        c
+      );
+
+    }else{
+
+      reveal(
+        r,
+        c
+      );
+
+    }
+  }
+
+
   function renderBoard(){
 
     const cells=[];
@@ -1700,18 +1755,37 @@ function minesweeper(){
           board[r][c];
 
         cells.push(`
+
           <button
             class="
               ms-cell
               ${open[r][c]?"open":""}
               ${flag[r][c]?"flag":""}
             "
+
             onclick="
-              MS.reveal(${r},${c})
+              MS.click(${r},${c})
             "
+
             oncontextmenu="
               event.preventDefault();
               MS.flag(${r},${c})
+            "
+
+            ontouchstart="
+              MS.touchStart(${r},${c})
+            "
+
+            ontouchmove="
+              MS.touchMove()
+            "
+
+            ontouchend="
+              MS.touchEnd()
+            "
+
+            ontouchcancel="
+              MS.touchEnd()
             "
           >
             ${
@@ -1726,24 +1800,90 @@ function minesweeper(){
                 :""
             }
           </button>
+
         `);
       }
+
+
+    const modeButtons=`
+
+      <div
+        style="
+          display:flex;
+          gap:8px;
+          margin-bottom:10px;
+        "
+      >
+
+        <button
+          class="${
+            mobileMode==="open"
+            ?"primary"
+            :"secondary"
+          }"
+          style="
+            flex:1;
+            min-width:0;
+          "
+          onclick="
+            MS.mode('open')
+          "
+        >
+          👆 열기
+        </button>
+
+        <button
+          class="${
+            mobileMode==="flag"
+            ?"primary"
+            :"secondary"
+          }"
+          style="
+            flex:1;
+            min-width:0;
+          "
+          onclick="
+            MS.mode('flag')
+          "
+        >
+          🚩 깃발
+        </button>
+
+      </div>
+
+    `;
+
 
     $("#app").innerHTML=
       gamePage(
         "💣 지뢰찾기",
 
         `
+
           <div
             class="card"
-            style="padding:12px"
+            style="
+              padding:10px;
+              overflow:hidden;
+            "
           >
+
+            ${modeButtons}
 
             <div
               class="ms-board"
               style="
                 grid-template-columns:
-                repeat(${M},1fr)
+                  repeat(
+                    ${M},
+                    minmax(0,1fr)
+                  );
+                width:min(
+                  100%,
+                  420px
+                );
+                max-width:100%;
+                margin:0 auto;
               "
             >
               ${cells.join("")}
@@ -1751,18 +1891,37 @@ function minesweeper(){
 
           </div>
 
-          <p class="muted center">
-            좌클릭: 열기 ·
-            우클릭: 깃발
+          <p
+            class="muted center"
+            style="line-height:1.6"
+          >
+            모바일:
+            <b>열기 / 깃발</b>
+            버튼 사용 ·
+            타일을 <b>길게 누르면 깃발</b>
+
+            <br>
+
+            PC:
+            좌클릭 열기 ·
+            우클릭 깃발
+
           </p>
+
         `
       );
   }
 
+
   window.MS={
     reveal,
+    click:cellClick,
     toggle:toggleFlag,
-    flag:toggleFlag
+    flag:toggleFlag,
+    mode:setMobileMode,
+    touchStart,
+    touchMove,
+    touchEnd
   };
 
   renderBoard();
@@ -1771,6 +1930,7 @@ function minesweeper(){
 
 /* =========================================================
    SHISEN
+   모바일 반응형 8×8
 ========================================================= */
 
 function shisen(){
@@ -1808,6 +1968,7 @@ function shisen(){
     r,
     c
   ){
+
     return r*C+c;
   }
 
@@ -2049,6 +2210,7 @@ function shisen(){
     )
       return;
 
+
     if(!sel){
 
       sel={
@@ -2058,6 +2220,7 @@ function shisen(){
 
       return render();
     }
+
 
     if(
       sel.r===r&&
@@ -2104,6 +2267,7 @@ function shisen(){
 
       sel=null;
 
+
       if(
         alive.every(
           x=>!x
@@ -2144,6 +2308,7 @@ function shisen(){
       )
 
         cells.push(`
+
           <button
             class="
               shisen-cell
@@ -2151,13 +2316,15 @@ function shisen(){
                 sel&&
                 sel.r===r&&
                 sel.c===c
-                ?"selected":""
+                ?"selected"
+                :""
               }
             "
             onclick="
               SH.click(${r},${c})
             "
           >
+
             ${
               alive[
                 id(r,c)
@@ -2167,7 +2334,9 @@ function shisen(){
               ]
               :""
             }
+
           </button>
+
         `);
 
 
@@ -2176,16 +2345,29 @@ function shisen(){
         "🀄 사천성",
 
         `
+
           <div
             class="card"
-            style="padding:10px"
+            style="
+              padding:8px;
+              overflow:hidden;
+            "
           >
 
             <div
               class="shisen-board"
               style="
                 grid-template-columns:
-                repeat(${C},1fr)
+                  repeat(
+                    ${C},
+                    minmax(0,1fr)
+                  );
+                width:min(
+                  100%,
+                  420px
+                );
+                max-width:100%;
+                margin:0 auto;
               "
             >
               ${cells.join("")}
@@ -2193,13 +2375,21 @@ function shisen(){
 
           </div>
 
-          <p class="muted center">
+          <p
+            class="muted center"
+            style="line-height:1.6"
+          >
             같은 타일을 최대 2번
             꺾어 연결하세요.
+            <br>
+            휴대폰 화면에 맞춰
+            타일 크기가 자동 조절됩니다.
           </p>
+
         `
       );
   }
+
 
   window.SH={
     click
@@ -2336,12 +2526,14 @@ function omok(){
       )
 
         cells.push(`
+
           <button
             class="omok-cell"
             onclick="
               OM.put(${r},${c})
             "
           >
+
             ${
               b[r][c]
               ?`
@@ -2358,7 +2550,9 @@ function omok(){
               `
               :""
             }
+
           </button>
+
         `);
 
 
@@ -2367,6 +2561,7 @@ function omok(){
         "⚫ 오목",
 
         `
+
           <div
             class="card"
             style="padding:8px"
@@ -2386,9 +2581,11 @@ function omok(){
               :"⚪ 백"
             }
           </p>
+
         `
       );
   }
+
 
   window.OM={
     put
@@ -2479,6 +2676,7 @@ function tetris(){
           (v,x)=>{
 
             if(v)
+
               b[
                 p.y+y
               ][
@@ -2634,6 +2832,7 @@ function tetris(){
               p.y+y<H&&
               p.x+x<W
             )
+
               a[
                 p.y+y
               ][
@@ -2650,6 +2849,7 @@ function tetris(){
         "🧱 테트리스",
 
         `
+
           <div class="tetris-wrap">
 
             <div class="tetris-board">
@@ -2733,7 +2933,6 @@ function tetris(){
 
           </div>
 
-
           <p class="center muted">
             ${
               over
@@ -2741,6 +2940,7 @@ function tetris(){
               :"버튼으로 블록을 움직여 보세요."
             }
           </p>
+
         `
       );
   }
@@ -2754,6 +2954,7 @@ function tetris(){
 
   render();
 
+
   clearInterval(
     window.ti
   );
@@ -2761,8 +2962,10 @@ function tetris(){
   window.ti=
     setInterval(
       ()=>{
+
         if(!over)
           down();
+
       },
       700
     );
@@ -2784,19 +2987,20 @@ function toast(
 
   e.textContent=msg;
 
-  e.style.cssText=
-    `
-      position:fixed;
-      left:50%;
-      bottom:95px;
-      transform:translateX(-50%);
-      background:#1f2a39;
-      color:#fff;
-      padding:13px 18px;
-      border-radius:999px;
-      z-index:100;
-      font-weight:800
-    `;
+  e.style.cssText=`
+    position:fixed;
+    left:50%;
+    bottom:95px;
+    transform:translateX(-50%);
+    background:#1f2a39;
+    color:#fff;
+    padding:13px 18px;
+    border-radius:999px;
+    z-index:100;
+    font-weight:800;
+    max-width:90%;
+    text-align:center;
+  `;
 
   document.body.appendChild(e);
 
@@ -2851,6 +3055,7 @@ function toast(
       button_link:
         ""
     };
+
   }
 
 
@@ -2868,6 +3073,7 @@ function toast(
   }catch{
 
     render();
+
   }
 
 })();
