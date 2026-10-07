@@ -128,22 +128,16 @@ function publicUser(user) {
   return {
     id: user.id,
     username: user.username,
-
     points: Number(user.points || 0),
     level: Number(user.level || 1),
     xp: Number(user.xp || 0),
-
     body_size: Number(user.body_size || 0),
     evolution,
-
     wins: Number(user.wins || 0),
     losses: Number(user.losses || 0),
-
     energy: 100,
     fullness: 100,
-
     role: user.role || "user",
-
     title:
       titles[
         Math.min(
@@ -158,20 +152,13 @@ function publicUser(user) {
    CURRENT USER
 ========================= */
 
-async function getCurrentUser(
-  request,
-  env
-) {
-
+async function getCurrentUser(request, env) {
   const authorization =
-    request.headers.get(
-      "authorization"
-    ) || "";
+    request.headers.get("authorization") || "";
 
   if (
     authorization.startsWith("Bearer ")
   ) {
-
     const token =
       authorization.slice(7);
 
@@ -179,7 +166,6 @@ async function getCurrentUser(
       readToken(token);
 
     if (data?.id) {
-
       const user =
         await env.DB
           .prepare(
@@ -194,24 +180,15 @@ async function getCurrentUser(
     }
   }
 
-  /*
-    기존 x-user-name 방식도
-    호환해둡니다.
-  */
+  /* 기존 x-user-name 방식 호환 */
 
   const headerName =
-    request.headers.get(
-      "x-user-name"
-    );
+    request.headers.get("x-user-name");
 
   if (headerName) {
-
     try {
-
       const username =
-        decodeURIComponent(
-          headerName
-        );
+        decodeURIComponent(headerName);
 
       return await env.DB
         .prepare(
@@ -219,7 +196,6 @@ async function getCurrentUser(
         )
         .bind(username)
         .first();
-
     } catch {}
   }
 
@@ -230,91 +206,76 @@ async function getCurrentUser(
    REGISTER
 ========================= */
 
-async function register(
-  request,
-  env
-) {
-
-  const body =
-    await readJson(request);
-
-  const username =
-    String(
-      body.username || ""
-    ).trim();
-
-  const password =
-    String(
-      body.password || ""
-    );
-
-  if (username.length < 2) {
-    return json(
-      {
-        error:
-          "닉네임은 2자 이상 입력해주세요."
-      },
-      400
-    );
-  }
-
-  if (username.length > 20) {
-    return json(
-      {
-        error:
-          "닉네임은 20자 이하로 입력해주세요."
-      },
-      400
-    );
-  }
-
-  if (password.length < 4) {
-    return json(
-      {
-        error:
-          "비밀번호는 4자 이상 입력해주세요."
-      },
-      400
-    );
-  }
-
-  const existing =
-    await env.DB
-      .prepare(
-        "SELECT id FROM users WHERE username = ?"
-      )
-      .bind(username)
-      .first();
-
-  if (existing) {
-    return json(
-      {
-        error:
-          "이미 사용 중인 닉네임입니다."
-      },
-      409
-    );
-  }
-
-  const salt =
-    crypto.randomUUID();
-
-  const passwordHash =
-    await hashPassword(
-      password,
-      salt
-    );
-
-  /*
-    기존 users 테이블을 최대한
-    그대로 사용하기 위해
-    salt:hash 형태로 저장합니다.
-  */
-
-  const storedPassword =
-    `${salt}:${passwordHash}`;
-
+async function register(request, env) {
   try {
+    const body =
+      await readJson(request);
+
+    const username =
+      String(body.username || "").trim();
+
+    const password =
+      String(body.password || "");
+
+    if (username.length < 2) {
+      return json(
+        {
+          error:
+            "닉네임은 2자 이상 입력해주세요."
+        },
+        400
+      );
+    }
+
+    if (username.length > 20) {
+      return json(
+        {
+          error:
+            "닉네임은 20자 이하로 입력해주세요."
+        },
+        400
+      );
+    }
+
+    if (password.length < 4) {
+      return json(
+        {
+          error:
+            "비밀번호는 4자 이상 입력해주세요."
+        },
+        400
+      );
+    }
+
+    const existing =
+      await env.DB
+        .prepare(
+          "SELECT id FROM users WHERE username = ?"
+        )
+        .bind(username)
+        .first();
+
+    if (existing) {
+      return json(
+        {
+          error:
+            "이미 사용 중인 닉네임입니다."
+        },
+        409
+      );
+    }
+
+    const salt =
+      crypto.randomUUID();
+
+    const passwordHash =
+      await hashPassword(
+        password,
+        salt
+      );
+
+    const storedPassword =
+      `${salt}:${passwordHash}`;
 
     const result =
       await env.DB
@@ -351,9 +312,7 @@ async function register(
         .prepare(
           "SELECT * FROM users WHERE id = ?"
         )
-        .bind(
-          result.meta.last_row_id
-        )
+        .bind(result.meta.last_row_id)
         .first();
 
     return json({
@@ -362,12 +321,19 @@ async function register(
     });
 
   } catch (error) {
+    console.error(
+      "REGISTER ERROR:",
+      error
+    );
 
     return json(
       {
         error:
           "회원가입 중 오류가 발생했습니다.",
-        detail: String(error)
+        detail:
+          String(
+            error?.message || error
+          )
       },
       500
     );
@@ -378,120 +344,150 @@ async function register(
    LOGIN
 ========================= */
 
-async function login(
-  request,
-  env
-) {
+async function login(request, env) {
+  try {
+    const body =
+      await readJson(request);
 
-  const body =
-    await readJson(request);
+    const username =
+      String(body.username || "").trim();
 
-  const username =
-    String(
-      body.username || ""
-    ).trim();
+    const password =
+      String(body.password || "");
 
-  const password =
-    String(
-      body.password || ""
-    );
-
-  const user =
-    await env.DB
-      .prepare(
-        "SELECT * FROM users WHERE username = ?"
-      )
-      .bind(username)
-      .first();
-
-  if (!user) {
-    return json(
-      {
-        error:
-          "닉네임 또는 비밀번호가 틀렸습니다."
-      },
-      401
-    );
-  }
-
-  const stored =
-    String(
-      user.password_hash || ""
-    );
-
-  let verified = false;
-
-  /*
-    신규 계정
-    salt:hash
-  */
-
-  if (stored.includes(":")) {
-
-    const index =
-      stored.indexOf(":");
-
-    const salt =
-      stored.slice(
-        0,
-        index
+    if (!username || !password) {
+      return json(
+        {
+          error:
+            "닉네임과 비밀번호를 입력해주세요."
+        },
+        400
       );
+    }
 
-    const savedHash =
-      stored.slice(
-        index + 1
+    const user =
+      await env.DB
+        .prepare(
+          "SELECT * FROM users WHERE username = ?"
+        )
+        .bind(username)
+        .first();
+
+    if (!user) {
+      return json(
+        {
+          error:
+            "닉네임 또는 비밀번호가 틀렸습니다."
+        },
+        401
       );
+    }
 
-    const currentHash =
-      await hashPassword(
-        password,
-        salt
+    const stored =
+      String(user.password_hash || "");
+
+    if (!stored) {
+      return json(
+        {
+          error:
+            "이 계정의 비밀번호 정보가 없습니다. 관리자에게 문의해주세요."
+        },
+        500
       );
+    }
 
-    verified =
-      currentHash === savedHash;
-
-  } else {
+    let verified = false;
 
     /*
-      기존 계정 호환
+      신규 계정
+      salt:hash
     */
 
-    const currentHash =
-      await hashPassword(
-        password,
-        username
+    if (stored.includes(":")) {
+      const index =
+        stored.indexOf(":");
+
+      const salt =
+        stored.slice(0, index);
+
+      const savedHash =
+        stored.slice(index + 1);
+
+      if (!salt || !savedHash) {
+        return json(
+          {
+            error:
+              "비밀번호 정보가 올바르지 않습니다."
+          },
+          500
+        );
+      }
+
+      const currentHash =
+        await hashPassword(
+          password,
+          salt
+        );
+
+      verified =
+        currentHash === savedHash;
+
+    } else {
+
+      /*
+        기존 계정 호환
+      */
+
+      const currentHash =
+        await hashPassword(
+          password,
+          username
+        );
+
+      verified =
+        currentHash === stored;
+    }
+
+    if (!verified) {
+      return json(
+        {
+          error:
+            "닉네임 또는 비밀번호가 틀렸습니다."
+        },
+        401
       );
+    }
 
-    verified =
-      currentHash === stored;
-  }
+    return json({
+      user: publicUser(user),
+      token: makeToken(user)
+    });
 
-  if (!verified) {
+  } catch (error) {
+    console.error(
+      "LOGIN ERROR:",
+      error
+    );
+
     return json(
       {
         error:
-          "닉네임 또는 비밀번호가 틀렸습니다."
+          "로그인 처리 중 오류가 발생했습니다.",
+        detail:
+          String(
+            error?.message || error
+          )
       },
-      401
+      500
     );
   }
-
-  return json({
-    user: publicUser(user),
-    token: makeToken(user)
-  });
 }
 
 /* =========================
    ME
 ========================= */
 
-async function me(
-  request,
-  env
-) {
-
+async function me(request, env) {
   const user =
     await getCurrentUser(
       request,
@@ -517,11 +513,7 @@ async function me(
    ACTION
 ========================= */
 
-async function action(
-  request,
-  env
-) {
-
+async function action(request, env) {
   const user =
     await getCurrentUser(
       request,
@@ -542,9 +534,7 @@ async function action(
     await readJson(request);
 
   const actionType =
-    String(
-      body.action || ""
-    );
+    String(body.action || "");
 
   let points =
     Number(user.points || 0);
@@ -568,18 +558,14 @@ async function action(
     message =
       "💼 일해서 500P와 XP를 얻었어요!";
 
-  } else if (
-    actionType === "cook"
-  ) {
+  } else if (actionType === "cook") {
 
     xp += 15;
 
     message =
       "🍳 요리를 완료했어요!";
 
-  } else if (
-    actionType === "rest"
-  ) {
+  } else if (actionType === "rest") {
 
     xp += 10;
 
@@ -697,10 +683,8 @@ async function ranking(env) {
     rankings: {
       points:
         points.results || [],
-
       level:
         level.results || [],
-
       games:
         games.results || []
     }
@@ -717,17 +701,13 @@ async function rooms(
   user
 ) {
 
-  if (
-    request.method === "GET"
-  ) {
+  if (request.method === "GET") {
 
     const url =
       new URL(request.url);
 
     const game =
-      url.searchParams.get(
-        "game"
-      );
+      url.searchParams.get("game");
 
     let result;
 
@@ -778,9 +758,7 @@ async function rooms(
     });
   }
 
-  if (
-    request.method === "POST"
-  ) {
+  if (request.method === "POST") {
 
     const body =
       await readJson(request);
@@ -793,9 +771,7 @@ async function rooms(
     const stake =
       Math.max(
         0,
-        Number(
-          body.stake || 0
-        )
+        Number(body.stake || 0)
       );
 
     const allowed = [
@@ -804,9 +780,7 @@ async function rooms(
       "shisen"
     ];
 
-    if (
-      !allowed.includes(game)
-    ) {
+    if (!allowed.includes(game)) {
       return json(
         {
           error:
@@ -831,11 +805,7 @@ async function rooms(
 
     let code = "";
 
-    for (
-      let i = 0;
-      i < 10;
-      i++
-    ) {
+    for (let i = 0; i < 10; i++) {
 
       code =
         Math.random()
@@ -935,11 +905,9 @@ async function joinRoom(
     );
   }
 
-  if (
-    room.host_id === user.id
-  ) {
+  if (room.host_id === user.id) {
     return json({
-      ok:true,
+      ok: true,
       room
     });
   }
@@ -967,8 +935,8 @@ async function joinRoom(
       .first();
 
   return json({
-    ok:true,
-    room:updated
+    ok: true,
+    room: updated
   });
 }
 
@@ -1006,14 +974,7 @@ async function roomState(
 
 /* =========================================================
    ADMIN
-   ========================================================= */
-
-/*
-  관리자 여부 확인
-
-  role 컬럼이 없는 기존 DB에서는
-  관리자 API 사용 전에 D1 마이그레이션이 필요합니다.
-*/
+========================================================= */
 
 async function requireAdmin(
   request,
@@ -1027,7 +988,6 @@ async function requireAdmin(
     );
 
   if (!user) {
-
     return {
       error:
         json(
@@ -1040,10 +1000,7 @@ async function requireAdmin(
     };
   }
 
-  if (
-    user.role !== "admin"
-  ) {
-
+  if (user.role !== "admin") {
     return {
       error:
         json(
@@ -1406,7 +1363,7 @@ async function adminNoticeToggle(
       .run();
 
     return json({
-      active:next
+      active: next
     });
 
   } catch (error) {
@@ -1453,7 +1410,7 @@ async function adminNoticeDelete(
       .run();
 
     return json({
-      ok:true
+      ok: true
     });
 
   } catch (error) {
@@ -1474,9 +1431,7 @@ async function adminNoticeDelete(
    PUBLIC NOTICE
 ========================= */
 
-async function publicNotice(
-  env
-) {
+async function publicNotice(env) {
 
   try {
 
@@ -1504,43 +1459,31 @@ async function publicNotice(
 
   } catch {
 
-    /*
-      아직 D1 테이블을 만들기 전에도
-      메인 사이트가 죽지 않도록
-      빈 배열을 반환합니다.
-    */
-
     return json({
-      notices:[]
+      notices: []
     });
   }
 }
 
-/* =========================
+/* =========================================================
    DURABLE OBJECT
-========================= */
+========================================================= */
 
 export class GameRoom {
 
-  constructor(
-    state,
-    env
-  ) {
-
+  constructor(state, env) {
     this.state = state;
     this.env = env;
-
-    this.sockets =
-      new Set();
+    this.sockets = new Set();
   }
 
   async fetch(request) {
 
     if (
-      request.headers.get(
-        "Upgrade"
-      )?.toLowerCase()
-      === "websocket"
+      request.headers
+        .get("Upgrade")
+        ?.toLowerCase() ===
+      "websocket"
     ) {
 
       const pair =
@@ -1554,25 +1497,19 @@ export class GameRoom {
 
       server.accept();
 
-      this.sockets.add(
-        server
-      );
+      this.sockets.add(server);
 
       server.addEventListener(
         "close",
         () => {
-          this.sockets.delete(
-            server
-          );
+          this.sockets.delete(server);
         }
       );
 
       server.addEventListener(
         "error",
         () => {
-          this.sockets.delete(
-            server
-          );
+          this.sockets.delete(server);
         }
       );
 
@@ -1583,20 +1520,16 @@ export class GameRoom {
           let data;
 
           try {
-
             data =
               JSON.parse(
                 event.data
               );
-
           } catch {
-
             return;
           }
 
           this.broadcast({
-            type:
-              "message",
+            type: "message",
             data
           });
         }
@@ -1604,8 +1537,7 @@ export class GameRoom {
 
       server.send(
         JSON.stringify({
-          type:
-            "connected",
+          type: "connected",
           message:
             "GameRoom 연결 성공"
         })
@@ -1614,15 +1546,15 @@ export class GameRoom {
       return new Response(
         null,
         {
-          status:101,
-          webSocket:client
+          status: 101,
+          webSocket: client
         }
       );
     }
 
     return json({
-      ok:true,
-      type:"GameRoom"
+      ok: true,
+      type: "GameRoom"
     });
   }
 
@@ -1632,96 +1564,77 @@ export class GameRoom {
       JSON.stringify(data);
 
     for (
-      const socket
-      of this.sockets
+      const socket of this.sockets
     ) {
 
       try {
 
-        socket.send(
-          message
-        );
+        socket.send(message);
 
       } catch {
 
-        this.sockets.delete(
-          socket
-        );
+        this.sockets.delete(socket);
       }
     }
   }
 }
 
-/* =========================
+/* =========================================================
    MAIN WORKER
-========================= */
+========================================================= */
 
 export default {
 
-  async fetch(
-    request,
-    env
-  ) {
+  async fetch(request, env) {
 
     const url =
-      new URL(
-        request.url
-      );
+      new URL(request.url);
 
-    /*
-      PUBLIC NOTICE
-      로그인 없이 접근 가능
-    */
+    /* =========================
+       PUBLIC NOTICE
+    ========================= */
 
     if (
       url.pathname ===
-      "/api/notices"
-      &&
+        "/api/notices" &&
       request.method === "GET"
     ) {
-
-      return publicNotice(
-        env
-      );
+      return publicNotice(env);
     }
 
-    /*
-      REGISTER
-    */
+    /* =========================
+       REGISTER
+    ========================= */
 
     if (
       url.pathname ===
-      "/api/register"
-      &&
+        "/api/register" &&
       request.method === "POST"
     ) {
-
       return register(
         request,
         env
       );
     }
 
-    /*
-      LOGIN
-    */
+    /* =========================
+       LOGIN
+    ========================= */
 
     if (
       url.pathname ===
-      "/api/login"
-      &&
+        "/api/login" &&
       request.method === "POST"
     ) {
-
       return login(
         request,
         env
       );
     }
 
-    /*
-      ADMIN NOTICE
-    */
+    /* =========================
+       ADMIN NOTICE
+    ========================= */
 
     if (
       url.pathname ===
@@ -1731,7 +1644,6 @@ export default {
       if (
         request.method === "GET"
       ) {
-
         return adminNoticeList(
           request,
           env
@@ -1741,7 +1653,6 @@ export default {
       if (
         request.method === "POST"
       ) {
-
         return adminNoticeCreate(
           request,
           env
@@ -1762,7 +1673,6 @@ export default {
       if (
         request.method === "PUT"
       ) {
-
         return adminNoticeUpdate(
           request,
           env,
@@ -1773,7 +1683,6 @@ export default {
       if (
         request.method === "DELETE"
       ) {
-
         return adminNoticeDelete(
           request,
           env,
@@ -1791,7 +1700,6 @@ export default {
       toggleMatch &&
       request.method === "POST"
     ) {
-
       return adminNoticeToggle(
         request,
         env,
@@ -1799,14 +1707,12 @@ export default {
       );
     }
 
-    /*
-      LOGIN REQUIRED
-    */
+    /* =========================
+       LOGIN REQUIRED
+    ========================= */
 
     if (
-      url.pathname.startsWith(
-        "/api/"
-      )
+      url.pathname.startsWith("/api/")
     ) {
 
       const user =
@@ -1816,7 +1722,6 @@ export default {
         );
 
       if (!user) {
-
         return json(
           {
             error:
@@ -1826,61 +1731,46 @@ export default {
         );
       }
 
-      /*
-        ME
-      */
+      /* ME */
 
       if (
         url.pathname ===
         "/api/me"
       ) {
-
         return json({
           user:
             publicUser(user)
         });
       }
 
-      /*
-        ACTION
-      */
+      /* ACTION */
 
       if (
         url.pathname ===
-        "/api/action"
-        &&
+          "/api/action" &&
         request.method === "POST"
       ) {
-
         return action(
           request,
           env
         );
       }
 
-      /*
-        RANKING
-      */
+      /* RANKING */
 
       if (
         url.pathname ===
         "/api/ranking"
       ) {
-
-        return ranking(
-          env
-        );
+        return ranking(env);
       }
 
-      /*
-        ROOMS
-      */
+      /* ROOMS */
 
       if (
         url.pathname ===
         "/api/rooms"
       ) {
-
         return rooms(
           request,
           env,
@@ -1888,9 +1778,7 @@ export default {
         );
       }
 
-      /*
-        JOIN ROOM
-      */
+      /* JOIN ROOM */
 
       const joinMatch =
         url.pathname.match(
@@ -1901,7 +1789,6 @@ export default {
         joinMatch &&
         request.method === "POST"
       ) {
-
         return joinRoom(
           request,
           env,
@@ -1910,9 +1797,7 @@ export default {
         );
       }
 
-      /*
-        ROOM STATE
-      */
+      /* ROOM STATE */
 
       const roomMatch =
         url.pathname.match(
@@ -1923,16 +1808,13 @@ export default {
         roomMatch &&
         request.method === "GET"
       ) {
-
         return roomState(
           env,
           roomMatch[1]
         );
       }
 
-      /*
-        WEBSOCKET
-      */
+      /* WEBSOCKET */
 
       const wsMatch =
         url.pathname.match(
@@ -1949,18 +1831,14 @@ export default {
         const room =
           env.GameRoom.get(id);
 
-        return room.fetch(
-          request
-        );
+        return room.fetch(request);
       }
     }
 
-    /*
-      STATIC ASSETS
-    */
+    /* =========================
+       STATIC ASSETS
+    ========================= */
 
-    return env.ASSETS.fetch(
-      request
-    );
+    return env.ASSETS.fetch(request);
   }
 };
