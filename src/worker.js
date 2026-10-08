@@ -1529,6 +1529,42 @@ async function adminNoticeDelete(
    PUBLIC NOTICE
 ========================= */
 
+
+/* =========================
+   ONLINE PRESENCE
+========================= */
+
+async function presence(request, env) {
+  try {
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS online_sessions (
+        user_id INTEGER PRIMARY KEY,
+        last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    if (request.method === "GET") {
+      await env.DB.prepare("DELETE FROM online_sessions WHERE last_seen < datetime('now','-90 seconds')").run();
+      const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM online_sessions WHERE last_seen >= datetime('now','-90 seconds')").first();
+      return json({ count: Number(row?.count || 0) });
+    }
+
+    if (request.method === "POST") {
+      const user = await getCurrentUser(request, env);
+      if (!user) return json({ error: "로그인이 필요합니다." }, 401);
+
+      await env.DB.prepare("INSERT INTO online_sessions(user_id,last_seen) VALUES(?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET last_seen=CURRENT_TIMESTAMP").bind(user.id).run();
+      await env.DB.prepare("DELETE FROM online_sessions WHERE last_seen < datetime('now','-90 seconds')").run();
+      const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM online_sessions WHERE last_seen >= datetime('now','-90 seconds')").first();
+      return json({ count: Number(row?.count || 0) });
+    }
+
+    return json({ error: "지원하지 않는 요청입니다." }, 405);
+  } catch (error) {
+    return json({ count: 0, error: String(error?.message || error) }, 500);
+  }
+}
+
 async function publicNotice(env) {
 
   try {
@@ -1725,6 +1761,14 @@ export default {
     }
 
     /* =========================
+       ONLINE PRESENCE
+    ========================= */
+
+    if (url.pathname === "/api/presence" && request.method === "GET") {
+      return presence(request, env);
+    }
+
+    /* =========================
        REGISTER
     ========================= */
 
@@ -1834,6 +1878,10 @@ export default {
         env,
         toggleMatch[1]
       );
+    }
+
+    if (url.pathname === "/api/presence" && request.method === "POST") {
+      return presence(request, env);
     }
 
     /* =========================
