@@ -34,7 +34,20 @@ async function api(url,opt={}){
     ...(token?{Authorization:`Bearer ${token}`}:{})
   };
 
-  const r=await fetch(url,opt);
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),8000);
+  opt.signal=controller.signal;
+
+  let r;
+  try{
+    r=await fetch(url,opt);
+  }catch(e){
+    if(e?.name==="AbortError") throw new Error("서버 응답이 늦어요. 잠시 후 다시 시도해주세요.");
+    throw e;
+  }finally{
+    clearTimeout(timeout);
+  }
+
   const t=await r.text();
 
   let d={};
@@ -1801,18 +1814,6 @@ async function sendPresence(){
   updateOnlineCount();
 }
 
-document.addEventListener("click",(event)=>{
-  const target=event.target.closest("[data-start-game]");
-  if(!target)return;
-  event.preventDefault();
-  event.stopPropagation();
-  const game=target.getAttribute("data-start-game");
-  if(game==="minesweeper") minesweeper();
-  else if(game==="shisen") shisen();
-  else if(game==="omok") omok();
-  else if(game==="tetris") tetris();
-});
-
 /* =========================================================
    START
    관리자 공지를 D1에서 가져옴
@@ -1822,17 +1823,12 @@ document.addEventListener("click",(event)=>{
 
   try{
 
-    const n=
-      await fetch(
-        "/api/notices"
-      ).then(
-        r=>
-          r.ok
-          ?r.json()
-          :{
-            notices:[]
-          }
-      );
+    const controller=new AbortController();
+    const noticeTimeout=setTimeout(()=>controller.abort(),5000);
+    const n=await fetch("/api/notices",{signal:controller.signal,cache:"no-store"})
+      .then(r=>r.ok?r.json():{notices:[]})
+      .catch(()=>({notices:[]}));
+    clearTimeout(noticeTimeout);
 
     window.HANI_NOTICE=
       (
