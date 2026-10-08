@@ -3,12 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#eef9f4">
+<meta name="theme-color" content="#eef8ff">
 <title>하니게임즈</title>
-<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/style.css?v=20261008-2">
+<style>
+#boot-fallback{min-height:100vh;display:grid;place-items:center;background:#eef8ff;padding:24px;box-sizing:border-box}
+#boot-fallback .boot-card{width:min(420px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 35px #6aa4c122;text-align:center;box-sizing:border-box}
+#boot-fallback .boot-bunny{font-size:64px;margin-bottom:8px}
+#boot-fallback h1{margin:8px 0;color:#4d7fae}
+#boot-fallback p{color:#7890a3}
+#boot-fallback input{width:100%;box-sizing:border-box;padding:14px;border:1px solid #d8e8f2;border-radius:12px;margin:6px 0;font-size:16px}
+#boot-fallback button{width:100%;padding:14px;border:0;border-radius:12px;background:#69a9dc;color:#fff;font-weight:800;font-size:16px;margin-top:8px}
+</style>
 </head>
 <body>
-<div id="app"></div>
-<script src="/app.js"></script>
+<div id="app">
+  <div id="boot-fallback">
+    <div class="boot-card">
+      <div class="boot-bunny">🐰</div>
+      <h1>하니게임즈</h1>
+      <p>하니게임즈를 불러오는 중이에요 💙</p>
+      <div id="boot-form" style="display:none">
+        <input id="boot-name" placeholder="닉네임">
+        <input id="boot-pw" type="password" placeholder="비밀번호">
+        <button onclick="window.__bootLogin()">로그인</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+window.__bootFallback=()=>{
+  const f=document.querySelector("#boot-fallback");
+  if(f) f.querySelector("p").textContent="사이트 화면을 준비하는 중이에요…";
+};
+window.__bootLogin=()=>{
+  if(typeof window.login==="function") return window.login();
+  alert("게임 화면 파일이 아직 배포되지 않았어요. Cloudflare 배포가 완료된 뒤 새로고침해 주세요.");
+};
+</script>
+<script src="/app.js?v=20261008-2"></script>
 </body>
 </html>
