@@ -854,30 +854,14 @@ function gameCard(
   k,
   g
 ){
-
   return `
-    <article class="card game-card">
-
-      <div class="game-icon">
-        ${g.icon}
-      </div>
-
-      <h3>
-        ${g.name}
-      </h3>
-
-      <p>
-        ${g.desc}
-      </p>
-
-      <button
-        class="primary"
-        style="margin-top:12px"
-        onclick="startGame('${k}')"
-      >
+    <article class="card game-card" style="cursor:pointer" onclick="startGame('${k}')">
+      <div class="game-icon">${g.icon}</div>
+      <h3>${g.name}</h3>
+      <p>${g.desc}</p>
+      <button class="primary" style="margin-top:12px" type="button" onclick="event.stopPropagation();startGame('${k}')">
         시작
       </button>
-
     </article>
   `;
 }
@@ -1448,28 +1432,16 @@ function renderModal(){
     );
 }
 
-function startGame(
-  type
-){
-
+function startGame(type){
   S.modal=null;
-
-  S.game={
-    type
-  };
-
-  if(type==="minesweeper")
-    minesweeper();
-
-  if(type==="shisen")
-    shisen();
-
-  if(type==="omok")
-    omok();
-
-  if(type==="tetris")
-    tetris();
+  S.game={type};
+  if(type==="minesweeper") return minesweeper();
+  if(type==="shisen") return shisen();
+  if(type==="omok") return omok();
+  if(type==="tetris") return tetris();
+  toast("게임을 불러오지 못했어요.");
 }
+window.startGame=startGame;
 
 function gamePage(
   title,
