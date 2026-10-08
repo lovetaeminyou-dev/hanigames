@@ -1,6 +1,7 @@
 const GAMES={
   minesweeper:{name:"지뢰찾기",icon:"💣",desc:"숫자를 보고 지뢰를 피하세요. 깃발과 연쇄 오픈까지 지원합니다."},
   shisen:{name:"사천성",icon:"🀄",desc:"같은 타일을 최대 두 번 꺾어 연결하면 제거됩니다."},
+  shisenBattle:{name:"사천성 배틀",icon:"⚔️",desc:"내 판과 상대 판을 동시에 보고 먼저 모두 지워보세요."},
   omok:{name:"오목",icon:"⚫",desc:"15×15 바둑판에서 먼저 5목을 완성하세요."},
   tetris:{name:"싱글 테트리스",icon:"🧱",desc:"블록을 회전·이동해 줄을 지우고 최고점에 도전하세요."}
 };
@@ -474,13 +475,14 @@ async function home(){
   }
 
   // 최신 포인트/레벨 정보는 백그라운드에서 갱신합니다.
-  api("/api/me").then(d=>{
-    if(d.user){
-      S.user=d.user;
-      const current=document.querySelector(".shell");
-      if(current && S.tab==="home") render();
-    }
-  }).catch(()=>{});
+  if(!window.__homeRefreshPending){
+    window.__homeRefreshPending=true;
+    api("/api/me").then(d=>{
+      if(d.user) S.user=d.user;
+    }).catch(()=>{}).finally(()=>{
+      window.__homeRefreshPending=false;
+    });
+  }
 
   const need=
     levelNeed(
@@ -1449,11 +1451,13 @@ function startGame(type){
   S.game={type};
   if(type==="minesweeper") return minesweeper();
   if(type==="shisen") return shisen();
+  if(type==="shisenBattle") return shisenBattle();
   if(type==="omok") return omok();
   if(type==="tetris") return tetris();
   toast("게임을 불러오지 못했어요.");
 }
 window.startGame=startGame;
+window.SHB=window.SHB||null;
 
 function gamePage(
   title,
@@ -1664,6 +1668,173 @@ function shisen(){
   newBoard();render();timer=setInterval(tick,1000);
 }
 
+/* =========================================================
+   SHISEN BATTLE
+========================================================= */
+
+function shisenBattle(){
+  const R=8,C=8;
+  const TILES=["🍎","🍋","🍇","🍒","🥝","🍉","🍑","🍓","🍊","🍍","🥕","🌽","🍀","⭐","🐰","🦊","🐼","🐸","🐯","🐨","🐹","🐵","🐶","🐱","🦄","🐥","🦋","🌸","💎","🎈","🎀","🥭"];
+  let me=[],enemy=[],selected=null,timeLeft=120,done=false,timer=null,botTimer=null,submitted=false;
+  let myRemoved=0,enemyRemoved=0;
+
+  function makeBoard(){
+    const vals=[...TILES,...TILES];
+    vals.sort(()=>Math.random()-.5);
+    return Array.from({length:R},(_,r)=>Array.from({length:C},(_,c)=>vals[r*C+c]));
+  }
+
+  function pathClear(board,a,b){
+    if(a[0]===b[0]&&a[1]===b[1])return false;
+    const inside=(r,c)=>r>=0&&r<R&&c>=0&&c<C;
+    const empty=(r,c)=>!inside(r,c)||!board[r][c];
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    const q=[[a[0],a[1],-1,0]],seen=new Map();
+    while(q.length){
+      const [r,c,dir,turns]=q.shift(),key=r+","+c+","+dir;
+      if(turns>2)continue;
+      if(r===b[0]&&c===b[1])return true;
+      if(seen.has(key)&&seen.get(key)<=turns)continue;
+      seen.set(key,turns);
+      for(let d=0;d<4;d++){
+        const nr=r+dirs[d][0],nc=c+dirs[d][1],nt=dir===-1||dir===d?turns:turns+1;
+        if(nt<=2&&((nr===b[0]&&nc===b[1])||empty(nr,nc)))q.push([nr,nc,d,nt]);
+      }
+    }
+    return false;
+  }
+
+  function findMove(board){
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c]){
+      for(let rr=r;rr<R;rr++)for(let cc=0;cc<C;cc++){
+        if(rr===r&&cc===c)continue;
+        if(board[rr][cc]===board[r][c]&&pathClear(board,[r,c],[rr,cc]))return [[r,c],[rr,cc]];
+      }
+    }
+    return null;
+  }
+
+  function shuffle(board){
+    const alive=board.flat().filter(Boolean);
+    for(let i=alive.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [alive[i],alive[j]]=[alive[j],alive[i]];
+    }
+    let k=0;
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c])board[r][c]=alive[k++];
+  }
+
+  function stop(){
+    clearInterval(timer);
+    clearInterval(botTimer);
+    timer=null;botTimer=null;
+  }
+
+  function finish(winner){
+    if(done)return;
+    done=true;stop();
+    const score=winner==="me"?Math.min(5000,1000+Math.max(0,timeLeft)*12+myRemoved*25):0;
+    render();
+    if(winner==="me"&&!submitted){
+      submitted=true;
+      api("/api/game-result",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({game:"shisen",score:score,combo:myRemoved,timeLeft:timeLeft})
+      }).then(d=>{
+        if(d.user)S.user=d.user;
+        if(d.message)toast(d.message);
+      }).catch(()=>{});
+    }
+    setTimeout(()=>{
+      alert(winner==="me"?"🏆 사천성 배틀 승리!\n"+score.toLocaleString()+"점":winner==="enemy"?"💥 상대방이 먼저 클리어했어요!":"⏰ 시간이 끝났어요!");
+    },80);
+  }
+
+  function tick(){
+    if(done)return;
+    timeLeft=Math.max(0,timeLeft-1);
+    if(timeLeft<=0)finish("draw");
+    else render();
+  }
+
+  function botMove(){
+    if(done)return;
+    const move=findMove(enemy);
+    if(move){
+      const [[r,c],[rr,cc]]=move;
+      enemy[r][c]=null;
+      enemy[rr][cc]=null;
+      enemyRemoved+=2;
+      if(enemy.flat().every(v=>!v)){finish("enemy");return;}
+    }else{
+      shuffle(enemy);
+    }
+    render();
+  }
+
+  function choose(r,c){
+    if(done||!me[r][c])return;
+    if(!selected){selected=[r,c];render();return;}
+    const [sr,sc]=selected;
+    if(sr===r&&sc===c){selected=null;render();return;}
+    if(me[sr][sc]!==me[r][c]||!pathClear(me,[sr,sc],[r,c])){
+      selected=[r,c];render();return;
+    }
+    me[sr][sc]=null;
+    me[r][c]=null;
+    selected=null;
+    myRemoved+=2;
+    if(me.flat().every(v=>!v)){finish("me");return;}
+    if(!findMove(me))shuffle(me);
+    render();
+  }
+
+  function renderBoard(board,clickable){
+    const cells=[];
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+      const v=board[r][c]||"";
+      const sel=clickable&&selected&&selected[0]===r&&selected[1]===c?" selected":"";
+      const fn=clickable?"SHB.choose("+r+","+c+")":"void(0)";
+      cells.push("<button class=\"shisen-battle-cell"+sel+"\" onclick=\""+fn+"\">"+v+"</button>");
+    }
+    return cells.join("");
+  }
+
+  function render(){
+    const myLeft=64-myRemoved;
+    const enemyLeft=64-enemyRemoved;
+    const myPct=Math.max(0,Math.min(100,myLeft/64*100));
+    const enemyPct=Math.max(0,Math.min(100,enemyLeft/64*100));
+    $("#app").innerHTML=shell(
+      "<div class=\"shisen-battle\">"+
+      "<div class=\"battle-topbar\"><button class=\"secondary\" onclick=\"SHB.exit()\">← 게임</button><strong>⚔️ 사천성 배틀</strong><span class=\"battle-time\">⏱️ "+timeLeft+"s</span></div>"+
+      "<section class=\"battle-player-card\"><div class=\"battle-player-head\"><div><b>🐰 "+esc(S.user?.username||"나")+"</b><small>내 판</small></div><strong>"+myLeft+"개 남음</strong></div><div class=\"battle-progress\"><i style=\"width:"+myPct+"%\"></i></div><div class=\"shisen-battle-board\">"+renderBoard(me,true)+"</div></section>"+
+      "<div class=\"battle-vs\">VS</div>"+
+      "<section class=\"battle-player-card enemy-card\"><div class=\"battle-player-head\"><div><b>🤖 상대 하니</b><small>배틀 상대</small></div><strong>"+enemyLeft+"개 남음</strong></div><div class=\"battle-progress\"><i style=\"width:"+enemyPct+"%\"></i></div><div class=\"shisen-battle-board\">"+renderBoard(enemy,false)+"</div></section>"+
+      "<p class=\"muted center\" style=\"margin:10px 0 18px\">같은 타일을 최대 2번 꺾어 연결하세요 · 먼저 0개가 되면 승리!</p>"+
+      "</div>"
+    );
+  }
+
+  window.SHB={
+    choose,
+    exit(){
+      if(done){go("games");return;}
+      if(confirm("배틀을 나가면 진행 중인 게임이 종료돼요. 나갈까요?")){
+        done=true;
+        stop();
+        go("games");
+      }
+    }
+  };
+
+  me=makeBoard();
+  enemy=makeBoard();
+  render();
+  timer=setInterval(tick,1000);
+  botTimer=setInterval(botMove,1100);
+}
 /* =========================================================
    OMOK
 ========================================================= */
