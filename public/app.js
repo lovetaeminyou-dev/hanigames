@@ -865,11 +865,11 @@ async function games(){
 
 function gameCard(k,g){
   return `
-    <article class="card game-card" style="cursor:pointer" onclick="startGame('${k}')">
+    <article class="card game-card" style="cursor:pointer" onclick="window.startGame('${k}')">
       <div class="game-icon">${g.icon}</div>
       <h3>${g.name}</h3>
       <p>${g.desc}</p>
-      <button class="primary game-start-btn" style="margin-top:12px" type="button" onclick="event.stopPropagation();startGame('${k}')">
+      <button class="primary game-start-btn" style="margin-top:12px" type="button" onclick="event.stopPropagation();window.startGame('${k}')">
         시작
       </button>
     </article>
@@ -1576,9 +1576,18 @@ function shisen(){
   let board=[],selected=null,timeLeft=120,score=0,combo=0,bestCombo=0,done=false,timer=null,submitted=false;
 
   function newBoard(){
-    let vals=[...tiles,...tiles].sort(()=>Math.random()-.5);
-    board=Array.from({length:R},(_,r)=>Array.from({length:C},(_,c)=>vals[r*C+c]));
-    if(!hasMove()) return newBoard();
+    const vals=[...tiles,...tiles];
+    for(let attempt=0;attempt<100;attempt++){
+      vals.sort(()=>Math.random()-.5);
+      board=Array.from({length:R},(_,r)=>Array.from({length:C},(_,c)=>vals[r*C+c]));
+      if(hasMove()) return;
+    }
+    board=Array.from({length:R},()=>Array(C).fill(null));
+    for(let i=0;i<tiles.length;i++){
+      const a=i*2, b=a+1;
+      board[Math.floor(a/C)][a%C]=tiles[i];
+      board[Math.floor(b/C)][b%C]=tiles[i];
+    }
   }
   function pathClear(a,b){
     if(a[0]===b[0]&&a[1]===b[1])return false;
