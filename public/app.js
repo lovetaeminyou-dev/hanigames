@@ -450,6 +450,8 @@ async function go(
 }
 
 
+window.go=go;
+
 async function checkAttendance(){
   if(window.__attendanceBusy)return;
   window.__attendanceBusy=true;
@@ -1480,7 +1482,7 @@ function gamePage(
 
         <button
           class="secondary"
-          onclick="go('games')"
+          onclick="window.go('games')"
         >
           ← 게임목록
         </button>
