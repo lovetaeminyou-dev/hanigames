@@ -48,3 +48,130 @@ button,input,select{font:inherit}button{cursor:pointer;border:0}body{min-height:
 .login-note{font-size:12px;text-align:center;margin-top:12px;color:#8a9791}
 @media(max-width:560px){.topbar{height:70px;padding:0 16px}.brand{font-size:21px}.logo{width:38px;height:38px}.hero-main{grid-template-columns:130px 1fr}.bunny-box{height:150px}.bunny{font-size:80px}.name{font-size:24px}.game-grid{grid-template-columns:1fr 1fr}.game-card{min-height:215px}.rank-grid{grid-template-columns:1fr}.rank-card{padding:13px}}
 @media(max-width:380px){.game-grid{grid-template-columns:1fr}.hero-main{grid-template-columns:1fr}.bunny-box{height:150px}}
+
+
+/* =========================================================
+   SHISEN BATTLE UI
+========================================================= */
+.shisen-battle{
+  max-width:720px;
+  margin:0 auto;
+  padding-bottom:18px;
+}
+.battle-topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin:10px 0 12px;
+}
+.battle-topbar strong{
+  font-size:19px;
+  color:#4f7ea2;
+}
+.battle-time{
+  font-weight:900;
+  color:#55716f;
+  white-space:nowrap;
+}
+.battle-player-card{
+  background:#f4fbf8;
+  border:2px solid #d7e9e2;
+  border-radius:22px;
+  padding:10px;
+  box-sizing:border-box;
+  box-shadow:0 3px 12px rgba(74,120,105,.06);
+}
+.battle-player-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:3px 2px 7px;
+}
+.battle-player-head div{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.battle-player-head b{
+  font-size:17px;
+  color:#435957;
+}
+.battle-player-head small{
+  color:#91a19c;
+  font-size:12px;
+}
+.battle-player-head>strong{
+  color:#3f554f;
+  white-space:nowrap;
+}
+.battle-progress{
+  height:10px;
+  background:#dfe8e5;
+  border-radius:999px;
+  overflow:hidden;
+  margin:0 0 8px;
+}
+.battle-progress i{
+  display:block;
+  height:100%;
+  border-radius:999px;
+  background:#566a65;
+  transition:width .2s ease;
+}
+.shisen-battle-board{
+  display:grid;
+  grid-template-columns:repeat(8,minmax(0,1fr));
+  gap:4px;
+  background:#eef7f3;
+  border:1px solid #d9e9e3;
+  border-radius:16px;
+  padding:4px;
+  box-sizing:border-box;
+}
+.shisen-battle-cell{
+  appearance:none;
+  border:1px solid #d7dedb;
+  background:#fff;
+  border-radius:9px;
+  min-width:0;
+  aspect-ratio:1;
+  padding:0;
+  display:grid;
+  place-items:center;
+  font-size:clamp(21px,6.8vw,38px);
+  line-height:1;
+  box-shadow:0 1px 2px rgba(0,0,0,.05);
+  touch-action:manipulation;
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.shisen-battle-cell:active{
+  transform:scale(.96);
+}
+.shisen-battle-cell.selected{
+  border:3px solid #72a7c9;
+  background:#e9f6ff;
+  box-shadow:0 0 0 2px #c5e3f5 inset;
+}
+.battle-vs{
+  text-align:center;
+  font-size:19px;
+  font-weight:950;
+  color:#60716c;
+  padding:8px 0;
+}
+.enemy-card .shisen-battle-cell{
+  pointer-events:none;
+}
+@media(max-width:560px){
+  .shisen-battle{padding-left:0;padding-right:0}
+  .battle-topbar strong{font-size:17px}
+  .battle-player-card{border-radius:18px;padding:8px}
+  .shisen-battle-board{gap:3px;padding:3px}
+  .shisen-battle-cell{border-radius:7px;font-size:clamp(18px,8vw,31px)}
+  .battle-player-head b{font-size:15px}
+  .battle-player-head>strong{font-size:14px}
+}
