@@ -430,19 +430,19 @@ async function go(
   S.tab=tab;
 
   if(tab==="home")
-    await home();
+    home();
 
   else if(tab==="games")
     await games();
 
   else if(tab==="ranks")
-    await ranks();
+    ranks();
 
   else if(tab==="news")
     await news();
 
   else if(tab==="profile")
-    await profile();
+    profile();
 
   if(push)
     scrollTo(0,0);
@@ -466,21 +466,21 @@ async function checkAttendance(){
 
 async function home(){
 
-  try{
-
-    S.user=
-      (
-        await api(
-          "/api/me"
-        )
-      ).user;
-
-  }catch(e){
-
+  // 화면은 현재 로그인 정보를 사용해 즉시 그립니다.
+  // /api/me가 느려도 버튼과 하단 메뉴가 멈추지 않도록 합니다.
+  const u=S.user;
+  if(!u){
     return logout();
   }
 
-  const u=S.user;
+  // 최신 포인트/레벨 정보는 백그라운드에서 갱신합니다.
+  api("/api/me").then(d=>{
+    if(d.user){
+      S.user=d.user;
+      const current=document.querySelector(".shell");
+      if(current && S.tab==="home") render();
+    }
+  }).catch(()=>{});
 
   const need=
     levelNeed(
@@ -980,6 +980,8 @@ function roomSection(
 async function createRoom(
   game
 ){
+
+  toast("방을 만들고 있어요…");
 
   try{
 
