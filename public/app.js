@@ -865,11 +865,11 @@ async function games(){
 
 function gameCard(k,g){
   return `
-    <article class="card game-card" data-start-game="${k}" style="cursor:pointer">
+    <article class="card game-card" style="cursor:pointer" onclick="startGame('${k}')">
       <div class="game-icon">${g.icon}</div>
       <h3>${g.name}</h3>
       <p>${g.desc}</p>
-      <button class="primary game-start-btn" data-start-game="${k}" style="margin-top:12px" type="button">
+      <button class="primary game-start-btn" style="margin-top:12px" type="button" onclick="event.stopPropagation();startGame('${k}')">
         시작
       </button>
     </article>
