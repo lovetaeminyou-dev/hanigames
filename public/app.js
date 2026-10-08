@@ -1908,10 +1908,12 @@ function minesweeper(){
    SHISEN
 ========================================================= */
 
+
 function shisen(){
   const R=8,C=8;
   const tiles=["🍎","🍋","🍇","🍒","🥝","🍉","🍑","🍓","🍊","🍍","🥕","🌽","🍀","⭐","🐰","🦊","🐼","🐸","🐯","🐨","🐹","🐵","🐶","🐱","🦄","🐥","🦋","🌸","💎","🎈","🎀","🥭"];
   let vals=[],alive=Array(R*C).fill(true),selected=null,drawPath=null,busy=false,hintTimer=null;
+  let score=0,combo=0,bestCombo=0,timeLeft=120,timer=null,finished=false,submitted=false;
   const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
   const id=(r,c)=>r*C+c;
   const shuffle=a=>a.slice().sort(()=>Math.random()-.5);
@@ -1922,12 +1924,11 @@ function shisen(){
     return shuffle(pool);
   }
 
-  // 사천성 핵심: 보드 바깥 한 칸을 빈 공간으로 취급하고 최대 2회전 경로를 탐색한다.
   function findPath(a,b){
     const H=R+2,W=C+2,sr=a.r+1,sc=a.c+1,tr=b.r+1,tc=b.c+1;
-    const q=[[sr,sc,-1,0]], parent=new Map(), seen=new Set([`${sr},${sc},-1,0`]);
+    const q=[[sr,sc,-1,0]],parent=new Map(),seen=new Set([sr+","+sc+",-1,0"]);
     let head=0;
-    const state=(r,c,d,t)=>`${r},${c},${d},${t}`;
+    const state=(r,c,d,t)=>r+","+c+","+d+","+t;
     while(head<q.length){
       const [r,c,d,t]=q[head++];
       for(let nd=0;nd<4;nd++){
@@ -1936,17 +1937,15 @@ function shisen(){
         let nr=r+dirs[nd][0],nc=c+dirs[nd][1];
         while(nr>=0&&nr<H&&nc>=0&&nc<W){
           if(nr===tr&&nc===tc){
-            const k=state(nr,nc,nd,nt); parent.set(k,state(r,c,d,t));
-            const out=[]; let cur=k;
-            while(cur){const z=cur.split(',').map(Number);out.push({r:z[0]-1,c:z[1]-1});cur=parent.get(cur)||null;}
-            out.reverse();
-            // 시작/끝의 패딩 좌표도 남겨서 바깥 경로의 선을 그릴 수 있게 한다.
-            return out;
+            const k=state(nr,nc,nd,nt);parent.set(k,state(r,c,d,t));
+            const out=[];let cur=k;
+            while(cur){const z=cur.split(",").map(Number);out.push({r:z[0]-1,c:z[1]-1});cur=parent.get(cur)||null;}
+            out.reverse();return out;
           }
           if(nr>=1&&nr<=R&&nc>=1&&nc<=C&&alive[id(nr-1,nc-1)]) break;
           const k=state(nr,nc,nd,nt);
           if(!seen.has(k)){seen.add(k);parent.set(k,state(r,c,d,t));q.push([nr,nc,nd,nt]);}
-          nr+=dirs[nd][0]; nc+=dirs[nd][1];
+          nr+=dirs[nd][0];nc+=dirs[nd][1];
         }
       }
     }
@@ -1957,8 +1956,7 @@ function shisen(){
     const groups={};
     for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(alive[id(r,c)])(groups[vals[id(r,c)]]??=[]).push({r,c});
     for(const list of Object.values(groups))for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
-      const path=findPath(list[i],list[j]);
-      if(path)return {a:list[i],b:list[j],path};
+      const path=findPath(list[i],list[j]);if(path)return {a:list[i],b:list[j],path};
     }
     return null;
   }
@@ -1979,53 +1977,165 @@ function shisen(){
   }
 
   function pathToPoints(path){
-    return path.map(p=>`${p.c+.5},${p.r+.5}`).join(' ');
+    return path.map(p=>(p.c+.5)+","+(p.r+.5)).join(" ");
+  }
+
+  function stopTimer(){
+    clearInterval(timer);
+    timer=null;
+  }
+
+  function finish(won){
+    if(finished)return;
+    finished=true;
+    stopTimer();
+    const speedBonus=won?Math.max(0,timeLeft)*10:0;
+    score=Math.max(0,score+speedBonus);
+    render();
+
+    if(won&&!submitted){
+      submitted=true;
+      api("/api/game-result",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({game:"shisen",score:score,combo:bestCombo,timeLeft:timeLeft})
+      }).then(d=>{
+        if(d.message)toast(d.message);
+        if(d.user)S.user=d.user;
+      }).catch(()=>{});
+    }
+
+    if(won){
+      setTimeout(()=>alert("🎉 사천성 클리어!\n점수 "+score.toLocaleString()+"점\n최대 콤보 "+bestCombo+"x\n남은 시간 "+timeLeft+"초"),80);
+    }else{
+      setTimeout(()=>alert("⏰ 시간 종료!\n점수 "+score.toLocaleString()+"점"),80);
+    }
+  }
+
+  function tick(){
+    if(finished)return;
+    timeLeft=Math.max(0,timeLeft-1);
+    if(timeLeft<=0)finish(false);
+    else render();
   }
 
   function click(r,c){
-    if(busy||!alive[id(r,c)])return;
+    if(finished||busy||!alive[id(r,c)])return;
     if(!selected){selected={r,c};render();return;}
     if(selected.r===r&&selected.c===c){selected=null;render();return;}
+
     const a={...selected},b={r,c};
     if(vals[id(a.r,a.c)]===vals[id(b.r,b.c)]){
       const path=findPath(a,b);
       if(path){
-        busy=true;selected=null;drawPath=path;render();
+        busy=true;
+        selected=null;
+        drawPath=path;
+        combo++;
+        bestCombo=Math.max(bestCombo,combo);
+        score+=100+(combo-1)*25;
+        render();
+
         setTimeout(()=>{
-          alive[id(a.r,a.c)]=false;alive[id(b.r,b.c)]=false;drawPath=null;busy=false;render();
-          if(alive.every(v=>!v)){setTimeout(()=>alert('🎉 사천성 클리어!'),50);return;}
-          if(!anyMove()&&shuffleRemaining()){toast('🔀 더 이상 연결할 수 없어 자동으로 셔플했어요!');render();}
-        },420);
+          alive[id(a.r,a.c)]=false;
+          alive[id(b.r,b.c)]=false;
+          drawPath=null;
+          busy=false;
+
+          if(alive.every(v=>!v)){
+            finish(true);
+            return;
+          }
+
+          if(!anyMove()&&shuffleRemaining()){
+            score=Math.max(0,score-50);
+            toast("🔀 막혀서 자동 셔플! -50점");
+          }
+          render();
+        },350);
         return;
       }
     }
-    selected={r,c};render();
+
+    combo=0;
+    selected={r,c};
+    render();
   }
 
   function hint(){
-    if(busy)return;
+    if(finished||busy)return;
     const m=anyMove();
-    if(!m){if(shuffleRemaining()){toast('🔀 가능한 수가 없어 셔플했어요!');render();}return;}
-    selected=m.a;drawPath=m.path;render();
-    clearTimeout(hintTimer);hintTimer=setTimeout(()=>{drawPath=null;render();},1000);
+    if(!m){
+      if(shuffleRemaining()){
+        score=Math.max(0,score-50);
+        toast("🔀 가능한 수가 없어 셔플했어요! -50점");
+        render();
+      }
+      return;
+    }
+    score=Math.max(0,score-100);
+    selected=m.a;
+    drawPath=m.path;
+    render();
+    clearTimeout(hintTimer);
+    hintTimer=setTimeout(()=>{drawPath=null;render();},900);
+    toast("💡 힌트 사용 -100점");
   }
 
   function shuffleBoard(){
-    if(busy)return;
-    if(shuffleRemaining()){selected=null;drawPath=null;toast('🔀 남은 타일을 섞었어요!');render();}
+    if(finished||busy)return;
+    if(shuffleRemaining()){
+      score=Math.max(0,score-50);
+      selected=null;
+      drawPath=null;
+      toast("🔀 남은 타일을 섞었어요! -50점");
+      render();
+    }
   }
+
   function render(){
     const cells=[];
-    for(let r=0;r<R;r++)for(let c=0;c<C;c++)cells.push(`<button class="shisen-cell ${selected&&selected.r===r&&selected.c===c?'selected':''}" style="min-width:0;width:100%;aspect-ratio:1;padding:0;margin:0;box-sizing:border-box;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:clamp(12px,5.5vw,30px);line-height:1;touch-action:manipulation" onclick="SH.click(${r},${c})">${alive[id(r,c)]?vals[id(r,c)]:''}</button>`);
-    const line=drawPath?`<svg viewBox="-1 -1 10 10" preserveAspectRatio="none" style="position:absolute;inset:-10px;width:calc(100% + 20px);height:calc(100% + 20px);overflow:visible;z-index:20;pointer-events:none"><polyline points="${pathToPoints(drawPath)}" fill="none" stroke="#7b61d8" stroke-width=".16" stroke-linecap="round" stroke-linejoin="round"/></svg>`:'';
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++){
+      cells.push(
+        '<button class="shisen-cell '+(selected&&selected.r===r&&selected.c===c?'selected':'')+
+        '" style="min-width:0;width:100%;aspect-ratio:1;padding:0;margin:0;box-sizing:border-box;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:clamp(12px,5.5vw,30px);line-height:1;touch-action:manipulation" onclick="SH.click('+r+','+c+')">'+
+        (alive[id(r,c)]?vals[id(r,c)]:"")+
+        '</button>'
+      );
+    }
+
+    const line=drawPath
+      ?'<svg viewBox="-1 -1 10 10" preserveAspectRatio="none" style="position:absolute;inset:-10px;width:calc(100% + 20px);height:calc(100% + 20px);overflow:visible;z-index:20;pointer-events:none"><polyline points="'+pathToPoints(drawPath)+'" fill="none" stroke="#7b61d8" stroke-width=".16" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      :"";
+
     const remaining=alive.filter(Boolean).length;
-    $('#app').innerHTML=gamePage('🀄 사천성',`<div class="card" style="padding:clamp(6px,2vw,10px);width:100%;max-width:520px;margin:0 auto;box-sizing:border-box;overflow:visible"><div style="position:relative;width:100%;overflow:visible"><div class="shisen-board" style="position:relative;z-index:1;width:100%;display:grid;grid-template-columns:repeat(${C},minmax(0,1fr));gap:clamp(2px,.8vw,5px);overflow:visible">${cells.join('')}</div>${line}</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px auto 0;max-width:520px"><button class="secondary" onclick="SH.hint()">💡 힌트</button><button class="secondary" onclick="SH.shuffle()">🔀 셔플</button></div><div class="card" style="padding:10px;margin-top:10px;text-align:center"><b>남은 타일 ${remaining}개</b></div><p class="muted center" style="margin-top:9px;line-height:1.65">같은 타일을 선택하고 빈 공간을 가로·세로로 <b>최대 2번</b> 꺾어 연결하세요.<br>보드 바깥쪽 빈 공간으로 돌아가는 경로도 가능합니다.</p>`);
+
+    $('#app').innerHTML=gamePage('🀄 사천성',
+      '<div class="card" style="padding:clamp(6px,2vw,10px);width:100%;max-width:520px;margin:0 auto;box-sizing:border-box;overflow:visible">'+
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px">'+
+          '<div class="stat" style="padding:9px;text-align:center"><small>⏱️ 시간</small><strong style="font-size:19px">'+timeLeft+'s</strong></div>'+
+          '<div class="stat" style="padding:9px;text-align:center"><small>🏆 점수</small><strong style="font-size:19px">'+score.toLocaleString()+'</strong></div>'+
+          '<div class="stat" style="padding:9px;text-align:center"><small>🔥 콤보</small><strong style="font-size:19px">'+combo+'x</strong></div>'+
+        '</div>'+
+        '<div style="position:relative;width:100%;overflow:visible">'+
+          '<div class="shisen-board" style="position:relative;z-index:1;width:100%;display:grid;grid-template-columns:repeat('+C+',minmax(0,1fr));gap:clamp(2px,.8vw,5px);overflow:visible">'+cells.join('')+'</div>'+
+          line+
+        '</div>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px auto 0;max-width:520px">'+
+        '<button class="secondary" onclick="SH.hint()">💡 힌트 <span style="opacity:.7">(-100)</span></button>'+
+        '<button class="secondary" onclick="SH.shuffle()">🔀 셔플 <span style="opacity:.7">(-50)</span></button>'+
+      '</div>'+
+      '<div class="card" style="padding:10px;margin-top:10px;text-align:center"><b>남은 타일 '+remaining+'개</b><div class="muted" style="margin-top:4px">최고 콤보 '+bestCombo+'x · 클리어 시 남은 시간 보너스 +10점/초</div></div>'+
+      '<p class="muted center" style="margin-top:9px;line-height:1.65">같은 타일을 선택하고 빈 공간을 가로·세로로 <b>최대 2번</b> 꺾어 연결하세요.<br>보드 바깥쪽 빈 공간으로 돌아가는 경로도 가능합니다.</p>'
+    );
   }
 
   window.SH={click,hint,shuffle:shuffleBoard};
-  newBoard();render();
+  newBoard();
+  render();
+  timer=setInterval(tick,1000);
 }
-
 
 /* =========================================================
    OMOK
