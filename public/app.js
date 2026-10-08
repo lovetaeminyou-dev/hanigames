@@ -36,7 +36,7 @@ async function api(url,opt={}){
   };
 
   const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),8000);
+  const timeout=setTimeout(()=>controller.abort(),5000);
   opt.signal=controller.signal;
 
   let r;
@@ -451,6 +451,8 @@ async function go(
 
 
 async function checkAttendance(){
+  if(window.__attendanceBusy)return;
+  window.__attendanceBusy=true;
   try{
     const d=await api("/api/attendance",{method:"POST"});
     if(d.user) S.user=d.user;
@@ -458,6 +460,8 @@ async function checkAttendance(){
     await home();
   }catch(e){
     toast(e.message || "출석체크에 실패했어요.");
+  }finally{
+    window.__attendanceBusy=false;
   }
 }
 
@@ -754,7 +758,8 @@ function actionCard(
 }
 
 async function doAction(a){
-
+  if(window.__actionBusy)return;
+  window.__actionBusy=true;
   try{
 
     const d=
@@ -982,7 +987,8 @@ function roomSection(
 async function createRoom(
   game
 ){
-
+  if(window.__roomBusy)return;
+  window.__roomBusy=true;
   toast("방을 만들고 있어요…");
 
   try{
@@ -1013,6 +1019,8 @@ async function createRoom(
     toast(
       e.message
     );
+  }finally{
+    window.__roomBusy=false;
   }}
 
 async function openRoom(
