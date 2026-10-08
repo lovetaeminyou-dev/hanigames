@@ -110,7 +110,7 @@ function readToken(token) {
    PUBLIC USER
 ========================= */
 
-function publicUser(user) {
+function publicUser(user, isChampion = false) {
   if (!user) return null;
 
   const evolution =
@@ -139,12 +139,14 @@ function publicUser(user) {
     fullness: 100,
     role: user.role || "user",
     title:
-      titles[
-        Math.min(
-          evolution,
-          titles.length - 1
-        )
-      ]
+      isChampion
+        ? "👑 하니게임즈 챔피언"
+        : titles[
+            Math.min(
+              evolution,
+              titles.length - 1
+            )
+          ]
   };
 }
 
@@ -698,10 +700,20 @@ async function action(request, env) {
       .bind(user.id)
       .first();
 
+  const champion =
+    await env.DB
+      .prepare(
+        "SELECT id FROM users ORDER BY points DESC, id ASC LIMIT 1"
+      )
+      .first();
+
   return json({
     message,
     user:
-      publicUser(updated)
+      publicUser(
+        updated,
+        Number(champion?.id) === Number(updated?.id)
+      )
   });
 }
 
@@ -1916,9 +1928,19 @@ export default {
         url.pathname ===
         "/api/me"
       ) {
+        const champion =
+          await env.DB
+            .prepare(
+              "SELECT id FROM users ORDER BY points DESC, id ASC LIMIT 1"
+            )
+            .first();
+
         return json({
           user:
-            publicUser(user)
+            publicUser(
+              user,
+              Number(champion?.id) === Number(user.id)
+            )
         });
       }
 
