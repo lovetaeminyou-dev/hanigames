@@ -2151,8 +2151,16 @@ export default {
        STATIC ASSETS
     ========================= */
 
-    return env.ASSETS.fetch(
-      request
-    );
+    // 루트 진입은 항상 실제 index.html을 명시적으로 반환합니다.
+    // 다른 정적 파일은 ASSETS에 그대로 전달합니다.
+    if (url.pathname === "/" || url.pathname === "") {
+      const indexRequest = new Request(
+        new URL("/index.html", request.url),
+        request
+      );
+      return env.ASSETS.fetch(indexRequest);
+    }
+
+    return env.ASSETS.fetch(request);
   }
 };
