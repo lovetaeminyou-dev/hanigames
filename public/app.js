@@ -1816,63 +1816,31 @@ async function sendPresence(){
 
 /* =========================================================
    START
-   관리자 공지를 D1에서 가져옴
+   초기 진입은 서버 응답을 기다리지 않고 즉시 화면 표시
 ========================================================= */
 
+window.HANI_NOTICE={
+  message:"하니게임즈에 오신 것을 환영해요 🐰💙",
+  button_text:"확인",
+  button_link:""
+};
+
+render();
+
 (async()=>{
+  try{
+    const n=await api("/api/notices");
+    window.HANI_NOTICE=(n.notices&&n.notices[0])||window.HANI_NOTICE;
+  }catch{}
 
   try{
-
-    const controller=new AbortController();
-    const noticeTimeout=setTimeout(()=>controller.abort(),5000);
-    const n=await fetch("/api/notices",{signal:controller.signal,cache:"no-store"})
-      .then(r=>r.ok?r.json():{notices:[]})
-      .catch(()=>({notices:[]}));
-    clearTimeout(noticeTimeout);
-
-    window.HANI_NOTICE=
-      (
-        n.notices&&
-        n.notices[0]
-      )||{
-        message:
-          "하니게임즈에 오신 것을 환영해요 🐰💙",
-        button_text:
-          "확인",
-        button_link:
-          ""
-      };
-
-  }catch{
-
-    window.HANI_NOTICE={
-      message:
-        "하니게임즈에 오신 것을 환영해요 🐰💙",
-      button_text:
-        "확인",
-      button_link:
-        ""
-    };
-  }
-
-
-  try{
-
-    const d=
-      await api(
-        "/api/me"
-      );
-
+    const d=await api("/api/me");
     S.user=d.user;
-
     render();
     sendPresence();
     clearInterval(presenceTimer);
     presenceTimer=setInterval(sendPresence,20000);
-
   }catch{
-
-    render();
+    // 로그인 전 상태라면 이미 표시된 로그인 화면을 유지
   }
-
 })();
