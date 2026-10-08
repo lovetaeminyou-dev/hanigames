@@ -10,3 +10,12 @@ CREATE TABLE IF NOT EXISTS rooms (
   FOREIGN KEY(guest_id) REFERENCES users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_rooms_status_game ON rooms(status, game);
+
+
+CREATE TABLE IF NOT EXISTS online_sessions (
+  user_id INTEGER PRIMARY KEY,
+  last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_online_sessions_last_seen
+ON online_sessions(last_seen);
