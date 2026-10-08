@@ -135,8 +135,8 @@ function publicUser(user, isChampion = false) {
     evolution,
     wins: Number(user.wins || 0),
     losses: Number(user.losses || 0),
-    energy: 100,
-    fullness: 100,
+    energy: Number(user.energy ?? 100),
+    fullness: Number(user.fullness ?? 100),
     role: user.role || "user",
     title:
       isChampion
