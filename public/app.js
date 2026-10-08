@@ -850,16 +850,13 @@ async function games(){
     `);
 }
 
-function gameCard(
-  k,
-  g
-){
+function gameCard(k,g){
   return `
-    <article class="card game-card" style="cursor:pointer" onclick="startGame('${k}')">
+    <article class="card game-card" data-start-game="${k}" style="cursor:pointer">
       <div class="game-icon">${g.icon}</div>
       <h3>${g.name}</h3>
       <p>${g.desc}</p>
-      <button class="primary" style="margin-top:12px" type="button" onclick="event.stopPropagation();startGame('${k}')">
+      <button class="primary game-start-btn" data-start-game="${k}" style="margin-top:12px" type="button">
         시작
       </button>
     </article>
@@ -1803,6 +1800,18 @@ async function sendPresence(){
   }catch{}
   updateOnlineCount();
 }
+
+document.addEventListener("click",(event)=>{
+  const target=event.target.closest("[data-start-game]");
+  if(!target)return;
+  event.preventDefault();
+  event.stopPropagation();
+  const game=target.getAttribute("data-start-game");
+  if(game==="minesweeper") minesweeper();
+  else if(game==="shisen") shisen();
+  else if(game==="omok") omok();
+  else if(game==="tetris") tetris();
+});
 
 /* =========================================================
    START
