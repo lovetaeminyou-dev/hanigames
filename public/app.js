@@ -1605,8 +1605,12 @@ function shisen(){
   }
   function pathClear(a,b){
     if(a[0]===b[0]&&a[1]===b[1])return false;
+    // 바깥 테두리 한 칸까지만 이동 허용합니다.
+    // 무제한으로 바깥 좌표를 탐색하면 BFS가 끝나지 않아
+    // 모바일에서 게임 시작 순간 화면이 멈출 수 있습니다.
     const inside=(r,c)=>r>=0&&r<R&&c>=0&&c<C;
-    const empty=(r,c)=>!inside(r,c)||!board[r][c];
+    const canVisit=(r,c)=>r>=-1&&r<=R&&c>=-1&&c<=C;
+    const empty=(r,c)=>canVisit(r,c)&&(!inside(r,c)||!board[r][c]);
     const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
     const q=[[a[0],a[1],-1,0]];
     const seen=new Map();
@@ -1694,8 +1698,12 @@ function shisenBattle(){
 
   function pathClear(board,a,b){
     if(a[0]===b[0]&&a[1]===b[1])return false;
+    // 바깥 테두리 한 칸까지만 이동 허용합니다.
+    // 무제한으로 바깥 좌표를 탐색하면 BFS가 끝나지 않아
+    // 모바일에서 게임 시작 순간 화면이 멈출 수 있습니다.
     const inside=(r,c)=>r>=0&&r<R&&c>=0&&c<C;
-    const empty=(r,c)=>!inside(r,c)||!board[r][c];
+    const canVisit=(r,c)=>r>=-1&&r<=R&&c>=-1&&c<=C;
+    const empty=(r,c)=>canVisit(r,c)&&(!inside(r,c)||!board[r][c]);
     const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
     const q=[[a[0],a[1],-1,0]],seen=new Map();
     while(q.length){
