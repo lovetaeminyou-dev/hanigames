@@ -561,6 +561,80 @@ async function me(request, env) {
   });
 }
 
+
+/* =========================
+   ATTENDANCE
+========================= */
+
+async function attendance(request, env) {
+  const user = await getCurrentUser(request, env);
+
+  if (!user) {
+    return json({ error: "로그인이 필요합니다." }, 401);
+  }
+
+  if (request.method !== "POST") {
+    return json({ error: "지원하지 않는 요청입니다." }, 405);
+  }
+
+  try {
+    const today = await env.DB.prepare(
+      "SELECT date('now','+9 hours') AS today"
+    ).first();
+
+    const date = today?.today;
+
+    const existing = await env.DB.prepare(
+      "SELECT * FROM attendance WHERE user_id = ? AND attendance_date = ?"
+    ).bind(user.id, date).first();
+
+    if (existing) {
+      return json({
+        message: "☑️ 오늘은 이미 출석했어요!",
+        user: publicUser(user),
+        already: true
+      });
+    }
+
+    const yesterdayRow = await env.DB.prepare(
+      "SELECT date('now','+9 hours','-1 day') AS yesterday"
+    ).first();
+
+    const yesterday = yesterdayRow?.yesterday;
+
+    const previous = await env.DB.prepare(
+      "SELECT streak FROM attendance WHERE user_id = ? AND attendance_date = ?"
+    ).bind(user.id, yesterday).first();
+
+    const streak = Number(previous?.streak || 0) + 1;
+    const reward = Math.min(1000, 300 + Math.max(0, streak - 1) * 50);
+
+    await env.DB.prepare(
+      "INSERT INTO attendance(user_id,attendance_date,streak,reward) VALUES(?,?,?,?)"
+    ).bind(user.id, date, streak, reward).run();
+
+    await env.DB.prepare(
+      "UPDATE users SET points = points + ?, xp = xp + 10 WHERE id = ?"
+    ).bind(reward, user.id).run();
+
+    const updated = await env.DB.prepare(
+      "SELECT * FROM users WHERE id = ?"
+    ).bind(user.id).first();
+
+    return json({
+      message: `📅 출석 완료! +${reward.toLocaleString()}P · ${streak}일 연속 출석 🔥`,
+      reward,
+      streak,
+      user: publicUser(updated)
+    });
+  } catch (error) {
+    return json({
+      error: "출석체크 중 오류가 발생했어요.",
+      detail: String(error?.message || error)
+    }, 500);
+  }
+}
+
 /* =========================
    ACTION
 ========================= */
@@ -1778,6 +1852,10 @@ export default {
 
     if (url.pathname === "/api/presence" && request.method === "GET") {
       return presence(request, env);
+    }
+
+    if (url.pathname === "/api/attendance" && request.method === "POST") {
+      return attendance(request, env);
     }
 
     /* =========================
