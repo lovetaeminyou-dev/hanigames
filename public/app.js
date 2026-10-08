@@ -436,6 +436,17 @@ async function go(
 }
 
 
+async function checkAttendance(){
+  try{
+    const d=await api("/api/attendance",{method:"POST"});
+    if(d.user) S.user=d.user;
+    toast(d.message || "출석 완료!");
+    await home();
+  }catch(e){
+    toast(e.message || "출석체크에 실패했어요.");
+  }
+}
+
 /* =========================================================
    HOME
 ========================================================= */
@@ -473,6 +484,15 @@ async function home(){
 
   $("#app").innerHTML=
     shell(`
+
+
+      <section class="card" style="padding:16px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div>
+          <div style="font-weight:950;font-size:18px">📅 오늘 출석체크</div>
+          <div class="muted" style="margin-top:4px">매일 출석하고 포인트를 받아요!</div>
+        </div>
+        <button class="primary" style="white-space:nowrap;font-size:15px;padding:11px 14px" onclick="checkAttendance()">출석하기</button>
+      </section>
 
       <section class="card hero">
 
