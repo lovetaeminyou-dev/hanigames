@@ -1,3 +1,4 @@
+html,body,button,a,input,select{touch-action:manipulation;-webkit-tap-highlight-color:transparent}button{-webkit-user-select:none;user-select:none}
 *{box-sizing:border-box}
 :root{
   --bg:#eef8ff;--card:#fff;--text:#1e2b35;--muted:#74838d;
