@@ -635,6 +635,40 @@ async function attendance(request, env) {
   }
 }
 
+
+/* =========================
+   GAME RESULT
+========================= */
+
+async function gameResult(request, env) {
+  const user = await getCurrentUser(request, env);
+  if (!user) return json({error:"로그인이 필요합니다."},401);
+
+  const body = await readJson(request);
+  const game = String(body.game || "");
+  const score = Math.max(0, Math.min(5000, Math.floor(Number(body.score || 0))));
+  const combo = Math.max(0, Math.min(100, Math.floor(Number(body.combo || 0))));
+
+  if (game !== "shisen" || score <= 0) {
+    return json({error:"유효하지 않은 게임 결과입니다."},400);
+  }
+
+  const reward = Math.min(1500, Math.max(100, Math.floor(score * 0.25)));
+
+  await env.DB.prepare(
+    "UPDATE users SET points = points + ?, xp = xp + ? WHERE id = ?"
+  ).bind(reward, Math.min(100, Math.floor(score / 50)), user.id).run();
+
+  const updated = await env.DB.prepare(
+    "SELECT * FROM users WHERE id = ?"
+  ).bind(user.id).first();
+
+  return json({
+    message:"🀄 사천성 "+score.toLocaleString()+"점! +"+reward.toLocaleString()+"P",
+    score:score,reward:reward,combo:combo,user:publicUser(updated)
+  });
+}
+
 /* =========================
    ACTION
 ========================= */
@@ -1856,6 +1890,10 @@ export default {
 
     if (url.pathname === "/api/attendance" && request.method === "POST") {
       return attendance(request, env);
+    }
+
+    if (url.pathname === "/api/game-result" && request.method === "POST") {
+      return gameResult(request, env);
     }
 
     /* =========================
