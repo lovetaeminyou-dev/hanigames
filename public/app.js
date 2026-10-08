@@ -1585,6 +1585,93 @@ function minesweeper(){
 
 
 /* =========================================================
+   SHISEN
+========================================================= */
+
+function shisen(){
+  const R=8,C=8;
+  const tiles=["🍎","🍋","🍇","🍒","🥝","🍉","🍑","🍓","🍊","🍍","🥕","🌽","🍀","⭐","🐰","🦊","🐼","🐸","🐯","🐨","🐹","🐵","🐶","🐱","🦄","🐥","🦋","🌸","💎","🎈","🎀","🥭"];
+  let board=[],selected=null,timeLeft=120,score=0,combo=0,bestCombo=0,done=false,timer=null,submitted=false;
+
+  function newBoard(){
+    let vals=[...tiles,...tiles].sort(()=>Math.random()-.5);
+    board=Array.from({length:R},(_,r)=>Array.from({length:C},(_,c)=>vals[r*C+c]));
+    if(!hasMove()) return newBoard();
+  }
+  function pathClear(a,b){
+    if(a[0]===b[0]&&a[1]===b[1])return false;
+    const inside=(r,c)=>r>=0&&r<R&&c>=0&&c<C;
+    const empty=(r,c)=>!inside(r,c)||!board[r][c];
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    const q=[[a[0],a[1],-1,0]];
+    const seen=new Map();
+    while(q.length){
+      const [r,c,dir,turns]=q.shift(),key=r+","+c+","+dir;
+      if(turns>2)continue;
+      if(r===b[0]&&c===b[1])return true;
+      if(seen.has(key)&&seen.get(key)<=turns)continue;
+      seen.set(key,turns);
+      for(let d=0;d<4;d++){
+        const nr=r+dirs[d][0],nc=c+dirs[d][1],nt=dir===-1||dir===d?turns:turns+1;
+        if(nt<=2&&((nr===b[0]&&nc===b[1])||empty(nr,nc)))q.push([nr,nc,d,nt]);
+      }
+    }
+    return false;
+  }
+  function hasMove(){
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c])
+      for(let rr=r;rr<R;rr++)for(let cc=0;cc<C;cc++)if(board[rr][cc]&&board[r][c]===board[rr][cc]&&pathClear([r,c],[rr,cc]))return true;
+    return false;
+  }
+  function stop(){clearInterval(timer);timer=null;}
+  function finish(){
+    if(done)return;
+    done=true;stop();
+    score+=timeLeft*10;
+    if(!submitted){
+      submitted=true;
+      api("/api/game-result",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({game:"shisen",score,combo:bestCombo,timeLeft})}).then(d=>{if(d.user)S.user=d.user;if(d.message)toast(d.message);}).catch(()=>{});
+    }
+    render();
+    setTimeout(()=>alert("🎉 사천성 클리어!\n점수 "+score.toLocaleString()+"점\n최고 콤보 "+bestCombo+""),80);
+  }
+  function tick(){if(done)return;timeLeft--;if(timeLeft<=0){timeLeft=0;done=true;stop();render();alert("⏰ 시간 종료!\n점수 "+score.toLocaleString()+"점");}else render();}
+  function shuffle(paid=true){
+    const alive=board.flat().filter(Boolean);
+    for(let i=alive.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[alive[i],alive[j]]=[alive[j],alive[i]];}
+    let k=0;for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c])board[r][c]=alive[k++];
+    selected=null;if(paid)score=Math.max(0,score-50);render();
+  }
+  function hint(){
+    if(done)return;
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)if(board[r][c])for(let rr=r;rr<R;rr++)for(let cc=0;cc<C;cc++)
+      if(board[rr][cc]&&board[r][c]===board[rr][cc]&&pathClear([r,c],[rr,cc])){
+        selected=[r,c];score=Math.max(0,score-100);render();return;
+      }
+    shuffle(true);
+  }
+  function choose(r,c){
+    if(done||!board[r][c])return;
+    if(!selected){selected=[r,c];render();return;}
+    const [sr,sc]=selected;
+    if(sr===r&&sc===c){selected=null;render();return;}
+    if(board[sr][sc]!==board[r][c]){combo=0;selected=[r,c];render();return;}
+    if(!pathClear([sr,sc],[r,c])){combo=0;selected=[r,c];render();return;}
+    board[sr][sc]=null;board[r][c]=null;combo++;bestCombo=Math.max(bestCombo,combo);score+=100+(combo-1)*25;selected=null;
+    if(board.flat().every(v=>!v))finish();
+    else if(!hasMove())shuffle(false);
+    else render();
+  }
+  function render(){
+    const cells=[];
+    for(let r=0;r<R;r++)for(let c=0;c<C;c++)cells.push('<button class="shisen-cell '+(selected&&selected[0]===r&&selected[1]===c?"selected":"")+'" onclick="SH.choose('+r+','+c+')">'+(board[r][c]||"")+'</button>');
+    $("#app").innerHTML=gamePage("🀄 사천성",'<div class="card" style="padding:10px"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px"><div class="stat" style="padding:9px;text-align:center"><small>⏱️ 시간</small><strong>'+timeLeft+'s</strong></div><div class="stat" style="padding:9px;text-align:center"><small>🏆 점수</small><strong>'+score.toLocaleString()+'</strong></div><div class="stat" style="padding:9px;text-align:center"><small>🔥 콤보</small><strong>'+combo+'</strong></div></div><div class="shisen-board" style="grid-template-columns:repeat('+C+',1fr)">'+cells.join("")+'</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"><button class="secondary" onclick="SH.hint()">💡 힌트 -100P</button><button class="secondary" onclick="SH.shuffle()">🔀 셔플 -50P</button></div><p class="muted center" style="margin-top:9px">같은 타일을 최대 2번 꺾어 연결하세요 · 120초 제한</p>');
+  }
+  window.SH={choose,hint,shuffle:()=>shuffle(true)};
+  newBoard();render();timer=setInterval(tick,1000);
+}
+
+/* =========================================================
    OMOK
 ========================================================= */
 
