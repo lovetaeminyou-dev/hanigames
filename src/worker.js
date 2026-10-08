@@ -154,8 +154,10 @@ function publicUser(user, isChampion = false) {
    CURRENT USER
 ========================= */
 
-async function getCurrentUser(request, env) {
-  // 생활 상태는 별도 테이블로 관리해 기존 users 테이블을 건드리지 않습니다.
+let userNeedsReady = false;
+
+async function ensureUserNeeds(env){
+  if(userNeedsReady) return;
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS user_needs (
       user_id INTEGER PRIMARY KEY,
@@ -164,7 +166,11 @@ async function getCurrentUser(request, env) {
       FOREIGN KEY(user_id) REFERENCES users(id)
     )
   `).run();
+  userNeedsReady = true;
+}
 
+async function getCurrentUser(request, env) {
+  await ensureUserNeeds(env);
   const authorization =
     request.headers.get("authorization") || "";
 
