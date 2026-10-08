@@ -1761,129 +1761,27 @@ async function publicNotice(env) {
 ========================================================= */
 
 export class GameRoom {
-
-  constructor(
-    state,
-    env
-  ) {
-    this.state = state;
-    this.env = env;
-    this.sockets = new Set();
+  constructor(state,env){this.state=state;this.env=env;this.sockets=new Set();this.players=new Map();this.boards=new Map();this.left=new Map();this.names=new Map();this.started=false;this.finished=false;this.roomCode="";}
+  send(ws,d){try{ws.send(JSON.stringify(d))}catch{this.sockets.delete(ws);this.players.delete(ws)}}
+  broadcast(d){const m=JSON.stringify(d);for(const ws of this.sockets){try{ws.send(m)}catch{this.sockets.delete(ws);this.players.delete(ws)}}}
+  async fetch(request){
+    if(request.headers.get("Upgrade")?.toLowerCase()!=="websocket")return json({ok:true,type:"GameRoom"});
+    const u=new URL(request.url),uid=String(u.searchParams.get("userId")||""),name=String(u.searchParams.get("username")||"하니"),code=String(u.searchParams.get("room")||"");
+    if(!uid||!code)return new Response("Missing battle identity",{status:400});
+    if(this.players.size>=2&&!Array.from(this.players.values()).includes(uid))return new Response("Battle room is full",{status:409});
+    const pair=new WebSocketPair(),client=pair[0],server=pair[1];server.accept();this.roomCode=code;this.sockets.add(server);this.players.set(server,uid);this.names.set(uid,name);if(!this.left.has(uid))this.left.set(uid,64);
+    server.addEventListener("message",e=>this.onMessage(server,e.data));server.addEventListener("close",()=>this.onClose(server));server.addEventListener("error",()=>this.onClose(server));
+    this.send(server,{type:"battle_connected",playerId:uid,waiting:this.players.size<2});if(this.players.size===2)await this.startBattle();return new Response(null,{status:101,webSocket:client});
   }
-
-  async fetch(request) {
-
-    if (
-      request.headers
-        .get("Upgrade")
-        ?.toLowerCase() ===
-      "websocket"
-    ) {
-
-      const pair =
-        new WebSocketPair();
-
-      const client =
-        pair[0];
-
-      const server =
-        pair[1];
-
-      server.accept();
-
-      this.sockets.add(
-        server
-      );
-
-      server.addEventListener(
-        "close",
-        () => {
-          this.sockets.delete(
-            server
-          );
-        }
-      );
-
-      server.addEventListener(
-        "error",
-        () => {
-          this.sockets.delete(
-            server
-          );
-        }
-      );
-
-      server.addEventListener(
-        "message",
-        event => {
-
-          let data;
-
-          try {
-            data =
-              JSON.parse(
-                event.data
-              );
-          } catch {
-            return;
-          }
-
-          this.broadcast({
-            type: "message",
-            data
-          });
-        }
-      );
-
-      server.send(
-        JSON.stringify({
-          type:
-            "connected",
-          message:
-            "GameRoom 연결 성공"
-        })
-      );
-
-      return new Response(
-        null,
-        {
-          status: 101,
-          webSocket: client
-        }
-      );
-    }
-
-    return json({
-      ok: true,
-      type:
-        "GameRoom"
-    });
+  async onMessage(ws,raw){
+    let d;try{d=JSON.parse(raw)}catch{return}const uid=this.players.get(ws);if(!uid||this.finished)return;
+    if(d.type==="init"){const board=Array.isArray(d.board)?d.board.slice(0,64):[];if(board.length!==64)return;this.boards.set(uid,board);this.names.set(uid,String(d.username||this.names.get(uid)||"하니"));this.left.set(uid,64);if(this.players.size===2&&this.boards.size===2)await this.startBattle();else this.send(ws,{type:"battle_waiting",players:this.players.size});return}
+    if(d.type==="move"&&this.started){const cur=Number(this.left.get(uid)||0);if(cur<=0)return;const next=Math.max(0,cur-2);this.left.set(uid,next);this.broadcast({type:"opponent_move",playerId:uid,a:Array.isArray(d.a)?d.a.slice(0,2):null,b:Array.isArray(d.b)?d.b.slice(0,2):null,left:next});if(next===0)await this.finishBattle(uid,"win");return}
+    if(d.type==="leave")await this.finishBattle(uid,"leave");
   }
-
-  broadcast(data) {
-
-    const message =
-      JSON.stringify(data);
-
-    for (
-      const socket
-      of this.sockets
-    ) {
-
-      try {
-
-        socket.send(
-          message
-        );
-
-      } catch {
-
-        this.sockets.delete(
-          socket
-        );
-      }
-    }
-  }
+  async startBattle(){if(this.started||this.finished||this.players.size!==2||this.boards.size!==2)return;this.started=true;const ids=Array.from(this.names.keys()).slice(0,2);this.broadcast({type:"battle_start",timeLeft:120,players:ids.map(id=>({id,username:this.names.get(id)||"하니",board:this.boards.get(id)||[]}))});try{await this.env.DB.prepare("UPDATE rooms SET status='playing' WHERE room_code=?").bind(this.roomCode).run()}catch{}}
+  async finishBattle(winnerId,reason){if(this.finished)return;this.finished=true;const ids=Array.from(this.names.keys()).slice(0,2),loserId=ids.find(id=>id!==winnerId)||null;let winnerReward=0,loserReward=0;if(reason==="win"&&loserId){winnerReward=1000;loserReward=300;try{await this.env.DB.batch([this.env.DB.prepare("UPDATE users SET points=points+?, xp=xp+?, wins=wins+1 WHERE id=?").bind(winnerReward,50,Number(winnerId)),this.env.DB.prepare("UPDATE users SET points=points+?, xp=xp+?, losses=losses+1 WHERE id=?").bind(loserReward,20,Number(loserId)),this.env.DB.prepare("UPDATE rooms SET status='finished' WHERE room_code=?").bind(this.roomCode)])}catch(e){console.error("BATTLE REWARD ERROR",e)}}else{try{await this.env.DB.prepare("UPDATE rooms SET status='finished' WHERE room_code=?").bind(this.roomCode).run()}catch{}}this.broadcast({type:"battle_result",winnerId,loserId,reason,winnerReward,loserReward})}
+  async onClose(ws){if(!this.sockets.has(ws))return;const uid=this.players.get(ws);this.sockets.delete(ws);this.players.delete(ws);if(!uid||this.finished)return;if(this.started){const opp=Array.from(this.names.keys()).find(id=>id!==uid);if(opp)await this.finishBattle(opp,"leave")}else{try{await this.env.DB.prepare("UPDATE rooms SET status='finished' WHERE room_code=?").bind(this.roomCode).run()}catch{}}}
 }
 
 /* =========================================================
@@ -2204,8 +2102,13 @@ export default {
         const room =
           env.GameRoom.get(id);
 
+        const wsUrl = new URL(request.url);
+        wsUrl.searchParams.set("room", wsMatch[1]);
+        wsUrl.searchParams.set("userId", String(user.id));
+        wsUrl.searchParams.set("username", String(user.username || "하니"));
+
         return room.fetch(
-          request
+          new Request(wsUrl.toString(), request)
         );
       }
     }
