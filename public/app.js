@@ -170,9 +170,7 @@ function shell(body){
 
         <div class="top-actions">
 
-          <span class="pill">
-            🟢 3명
-          </span>
+          <span class="pill" id="online-count">🟢 접속자 0명</span>
 
           <button
             class="pill"
@@ -2607,6 +2605,34 @@ function toast(
 }
 
 
+
+/* =========================================================
+   ONLINE PRESENCE
+========================================================= */
+
+let presenceTimer=null;
+
+async function updateOnlineCount(){
+  try{
+    const r=await fetch("/api/presence",{cache:"no-store"});
+    const d=await r.json();
+    const el=document.querySelector("#online-count");
+    if(el) el.textContent="🟢 접속자 "+Number(d.count||0)+"명";
+  }catch{}
+}
+
+async function sendPresence(){
+  try{
+    await fetch("/api/presence",{
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body:"{}",
+      cache:"no-store"
+    });
+  }catch{}
+  updateOnlineCount();
+}
+
 /* =========================================================
    START
    관리자 공지를 D1에서 가져옴
@@ -2664,6 +2690,9 @@ function toast(
     S.user=d.user;
 
     render();
+    sendPresence();
+    clearInterval(presenceTimer);
+    presenceTimer=setInterval(sendPresence,20000);
 
   }catch{
 
