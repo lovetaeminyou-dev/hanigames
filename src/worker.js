@@ -155,6 +155,16 @@ function publicUser(user, isChampion = false) {
 ========================= */
 
 async function getCurrentUser(request, env) {
+  // 생활 상태는 별도 테이블로 관리해 기존 users 테이블을 건드리지 않습니다.
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS user_needs (
+      user_id INTEGER PRIMARY KEY,
+      energy INTEGER NOT NULL DEFAULT 100,
+      fullness INTEGER NOT NULL DEFAULT 100,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+  `).run();
+
   const authorization =
     request.headers.get("authorization") || "";
 
@@ -171,7 +181,7 @@ async function getCurrentUser(request, env) {
       const user =
         await env.DB
           .prepare(
-            "SELECT * FROM users WHERE id = ?"
+            "SELECT users.*, COALESCE(n.energy,100) AS energy, COALESCE(n.fullness,100) AS fullness FROM users LEFT JOIN user_needs n ON n.user_id = users.id WHERE users.id = ?"
           )
           .bind(data.id)
           .first();
@@ -192,7 +202,7 @@ async function getCurrentUser(request, env) {
 
       return await env.DB
         .prepare(
-          "SELECT * FROM users WHERE username = ?"
+          "SELECT users.*, COALESCE(n.energy,100) AS energy, COALESCE(n.fullness,100) AS fullness FROM users LEFT JOIN user_needs n ON n.user_id = users.id WHERE users.username = ?"
         )
         .bind(username)
         .first();
@@ -569,6 +579,18 @@ async function me(request, env) {
 async function attendance(request, env) {
   const user = await getCurrentUser(request, env);
 
+  // schema.sql을 수동 적용하지 않았어도 출석 기능이 동작하도록 보장합니다.
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS attendance (
+      user_id INTEGER NOT NULL,
+      attendance_date TEXT NOT NULL,
+      streak INTEGER NOT NULL DEFAULT 1,
+      reward INTEGER NOT NULL DEFAULT 300,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, attendance_date)
+    )
+  `).run();
+
   if (!user) {
     return json({ error: "로그인이 필요합니다." }, 401);
   }
@@ -708,10 +730,15 @@ async function action(request, env) {
     );
 
   let message = "";
+  let energy = Math.max(0, Math.min(100, Number(user.energy ?? 100)));
+  let fullness = Math.max(0, Math.min(100, Number(user.fullness ?? 100)));
 
-  if (
-    actionType === "work"
-  ) {
+  if (actionType === "work") {
+    if (energy < 5) {
+      return json({ error: "체력이 부족해요. 먼저 쉬어주세요." }, 400);
+    }
+    energy -= 5;
+    fullness = Math.max(0, fullness - 4);
 
     points += 500;
     xp += 25;
@@ -723,6 +750,14 @@ async function action(request, env) {
     actionType === "cook"
   ) {
 
+    if (energy < 3) {
+      return json({ error: "체력이 부족해요. 먼저 쉬어주세요." }, 400);
+    }
+    energy -= 3;
+    if (fullness >= 100) {
+      return json({ error: "이미 배가 꽉 찼어요! 더 이상 먹을 수 없어요." }, 400);
+    }
+    fullness = Math.min(100, fullness + 20);
     xp += 15;
 
     message =
@@ -732,6 +767,8 @@ async function action(request, env) {
     actionType === "rest"
   ) {
 
+    energy = Math.min(100, energy + 30);
+    fullness = Math.max(0, fullness - 2);
     xp += 10;
 
     message =
@@ -787,6 +824,12 @@ async function action(request, env) {
       user.id
     )
     .run();
+
+  await env.DB.prepare(
+    `INSERT INTO user_needs(user_id,energy,fullness)
+     VALUES(?,?,?)
+     ON CONFLICT(user_id) DO UPDATE SET energy=excluded.energy, fullness=excluded.fullness`
+  ).bind(user.id, energy, fullness).run();
 
   const updated =
     await env.DB
