@@ -800,7 +800,7 @@ async function doAction(a){
 async function games(){
   let rooms=[];
   try{const d=await api("/api/rooms?game=holdem");rooms=d.rooms||[]}catch{}
-  const stakeOptions=[100,500,1000,5000];
+  const stakeOptions=[500,1000,5000];
   $("#app").innerHTML=shell(`
     <div class="section-title">게임</div>
     <div class="section-sub">사천성 · 텍사스 홀덤</div>
