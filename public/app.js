@@ -798,12 +798,59 @@ async function doAction(a){
 ========================================================= */
 
 async function games(){
+  let rooms=[];
+  try{const d=await api("/api/rooms?game=holdem");rooms=d.rooms||[]}catch{}
+  const stakeOptions=[100,500,1000,5000];
   $("#app").innerHTML=shell(`
     <div class="section-title">게임</div>
-    <div class="section-sub">사천성 또는 텍사스 홀덤을 선택해 플레이하세요.</div>
-    <div class="game-grid">${Object.entries(GAMES).map(([k,g])=>gameCard(k,g)).join("")}</div>
+    <div class="section-sub">사천성 · 텍사스 홀덤</div>
+    <div class="game-grid">${gameCard("shisen",GAMES.shisen)}${gameCard("holdem",GAMES.holdem)}</div>
+    <section class="card" style="margin-top:18px;padding:16px">
+      <h2 style="margin-top:0">♠️ 홀덤 테이블</h2>
+      <p class="section-sub">방마다 참가 포인트가 달라요. 사람이 없으면 봇과 연습할 수 있어요.</p>
+      <label for="holdem-stake">참가 포인트</label>
+      <select id="holdem-stake" class="input" style="width:100%;margin:8px 0 12px">
+        ${stakeOptions.map(n=>'<option value="'+n+'">'+n.toLocaleString()+' P 테이블</option>').join("")}
+      </select>
+      <button class="primary" style="width:100%" onclick="window.createHoldemRoom()">테이블 만들기</button>
+    </section>
+    <div class="section-title" style="margin-top:22px">열린 홀덤 방</div>
+    <div class="section-sub">참가 포인트를 확인하고 방에 들어가세요.</div>
+    <div id="holdem-room-list">${rooms.filter(r=>r.status==="waiting"||r.status==="ready").map(r=>'<div class="card room" style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 0;padding:14px"><div><b>♠️ '+esc(r.room_code)+'</b><p style="margin:5px 0 0">'+Number(r.stake).toLocaleString()+' P · '+(r.status==="waiting"?"대기 중":"상대 입장")+'</p></div><button class="secondary" onclick="window.joinHoldemRoom(\''+esc(r.room_code)+'\')">참가</button></div>').join("")||'<div class="card" style="padding:16px">대기 중인 방이 없어요. 먼저 방을 만들어 보세요!</div>'}</div>
+    <button class="secondary" style="width:100%;margin-top:8px" onclick="window.startGame('holdem')">사람이 없으면 봇과 바로 연습하기</button>
   `);
 }
+
+window.createHoldemRoom=async function(){
+  const stake=Number(document.querySelector("#holdem-stake")?.value||100);
+  try{
+    const d=await api("/api/rooms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({game:"holdem",stake})});
+    if(d.error)throw new Error(d.error);
+    toast("홀덤 방을 만들었어요!");
+    S.holdemStake=stake;S.holdemRoom=d.room.room_code;holdemLobbyRoom(d.room.room_code,stake);
+  }catch(e){toast(e.message||"방을 만들지 못했어요.")}
+};
+window.joinHoldemRoom=async function(code){
+  try{
+    const d=await api("/api/rooms/"+encodeURIComponent(code)+"/join",{method:"POST"});
+    if(d.error)throw new Error(d.error);
+    const room=d.room||d;
+    S.holdemStake=Number(room.stake||100);S.holdemRoom=code;
+    holdemLobbyRoom(code,S.holdemStake);
+  }catch(e){toast(e.message||"방에 참가하지 못했어요.")}
+};
+function holdemLobbyRoom(code,stake){
+  $("#app").innerHTML=shell(gamePage("♠️ 홀덤 방",`
+    <div class="card" style="padding:22px;text-align:center">
+      <div style="font-size:46px">♠️</div><h2>방 코드 ${esc(code)}</h2>
+      <p>참가 포인트 <b>${Number(stake).toLocaleString()} P</b></p>
+      <p class="section-sub">상대가 들어오지 않으면 봇과 연습할 수 있어요.</p>
+      <button class="primary" style="width:100%" onclick="window.startHoldemAtStake(${Number(stake)})">게임 시작 · 봇 대기 포함</button>
+      <button class="secondary" style="width:100%" onclick="window.go('games')">방 목록으로</button>
+    </div>
+  `));
+}
+window.startHoldemAtStake=stake=>{S.holdemStake=Number(stake)||100;startGame("holdem")};
 
 function gameCard(k,g){
   return `
@@ -1435,12 +1482,13 @@ function gamePage(
 
 /* TEXAS HOLD'EM — single-table practice against three computer players */
 function holdem(){
+  const buyIn=Math.max(100,Number(S.holdemStake||1000));
   const suits=["♠","♥","♦","♣"], ranks=["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
   const value=r=>r==="A"?14:r==="K"?13:r==="Q"?12:r==="J"?11:Number(r);
   const deck=[];for(const s of suits)for(const r of ranks)deck.push({s,r,v:value(r)});
   for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]]}
-  const players=[{name:S.user?.username||"나",human:true,chips:1000,hand:[deck.pop(),deck.pop()],fold:false},{name:"토끼봇",chips:1000,hand:[deck.pop(),deck.pop()],fold:false},{name:"구름봇",chips:1000,hand:[deck.pop(),deck.pop()],fold:false},{name:"별봇",chips:1000,hand:[deck.pop(),deck.pop()],fold:false}];
-  let community=[],pot=200,street=0,over=false,notice="프리플랍 · 내 카드 2장으로 시작해요.";
+  const players=[{name:S.user?.username||"나",human:true,chips:buyIn,hand:[deck.pop(),deck.pop()],fold:false},{name:"토끼봇",chips:buyIn,hand:[deck.pop(),deck.pop()],fold:false},{name:"구름봇",chips:buyIn,hand:[deck.pop(),deck.pop()],fold:false},{name:"별봇",chips:buyIn,hand:[deck.pop(),deck.pop()],fold:false}];
+  let community=[],pot=Math.min(200,buyIn*4),street=0,over=false,notice="프리플랍 · 내 카드 2장으로 시작해요.";
   const streets=["프리플랍","플랍","턴","리버","쇼다운"];
   const card=c=>c?'<span class="poker-card '+("♥♦".includes(c.s)?"red":"")+'"><b>'+c.r+'</b><i>'+c.s+'</i></span>':'<span class="poker-card back">🂠</span>';
   const scoreFive=cs=>{
@@ -1493,7 +1541,7 @@ function holdem(){
     over=true;street=4;
     const active=players.filter(p=>!p.fold);active.forEach(p=>p.rank=best([...p.hand,...community]));
     active.sort((a,b)=>cmp(b.rank,a.rank));const winner=active[0];
-    if(winner.human){winner.chips+=pot;notice="🏆 승리! "+handName(winner.rank)+"으로 팟 "+pot+"칩을 가져왔어요.";api("/api/game-result",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({game:"holdem",score:Math.max(400,pot)})}).then(d=>{if(d.user)S.user=d.user;toast(d.message||"홀덤 승리!")}).catch(()=>{})}
+    if(winner.human){winner.chips+=pot;notice="🏆 승리! "+handName(winner.rank)+"으로 팟 "+pot+"칩을 가져왔어요.";api("/api/game-result",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({game:"holdem",score:Math.max(400,Math.floor(pot))})}).then(d=>{if(d.user)S.user=d.user;toast(d.message||"홀덤 승리!")}).catch(()=>{})}
     else notice="이번 판은 "+winner.name+" 승리 · "+handName(winner.rank)+". 다시 도전해봐요!";
     render();
   };
