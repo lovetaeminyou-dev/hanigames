@@ -1,9 +1,6 @@
 const GAMES={
-  minesweeper:{name:"지뢰찾기",icon:"💣",desc:"숫자를 보고 지뢰를 피하세요. 깃발과 연쇄 오픈까지 지원합니다."},
-  shisen:{name:"사천성",icon:"🀄",desc:"같은 타일을 최대 두 번 꺾어 연결하면 제거됩니다."},
-  shisenBattle:{name:"사천성 배틀",icon:"⚔️",desc:"내 판과 상대 판을 동시에 보고 먼저 모두 지워보세요."},
-  omok:{name:"오목",icon:"⚫",desc:"15×15 바둑판에서 먼저 5목을 완성하세요."},
-  tetris:{name:"싱글 테트리스",icon:"🧱",desc:"블록을 회전·이동해 줄을 지우고 최고점에 도전하세요."}
+  shisen:{name:"사천성",icon:"🀄",desc:"같은 타일을 두 번 이하로 꺾어 연결해 모두 제거하세요."},
+  holdem:{name:"텍사스 홀덤",icon:"♠️",desc:"공용 카드 5장과 내 카드 2장으로 최고의 족보를 만들어 보세요."}
 };
 
 let S={
@@ -801,75 +798,11 @@ async function doAction(a){
 ========================================================= */
 
 async function games(){
-
-  $("#app").innerHTML=
-    shell(`
-
-      <div class="section-title">
-        게임
-      </div>
-
-      <div class="section-sub">
-        혼자 즐기거나 다른 하니들과
-        대전해 보세요.
-      </div>
-
-
-      <div
-        class="section-title"
-        style="font-size:21px"
-      >
-        포인트 개인게임
-      </div>
-
-
-      <div class="game-grid">
-
-        ${
-          Object.entries(GAMES)
-            .map(
-              ([k,g])=>
-                gameCard(k,g)
-            )
-            .join("")
-        }
-
-      </div>
-
-
-      <div
-        class="section-title"
-        style="font-size:21px"
-      >
-        단체게임
-      </div>
-
-      <div class="section-sub">
-        방을 만들고 친구와 함께 플레이하세요.
-      </div>
-
-
-      ${
-        [
-          "오목",
-          "테트리스 대전",
-          "사천성 대전"
-        ]
-        .map(
-          (x,i)=>
-            roomSection(
-              [
-                "omok",
-                "tetris",
-                "shisen"
-              ][i],
-              x
-            )
-        )
-        .join("")
-      }
-
-    `);
+  $("#app").innerHTML=shell(`
+    <div class="section-title">게임</div>
+    <div class="section-sub">사천성 또는 텍사스 홀덤을 선택해 플레이하세요.</div>
+    <div class="game-grid">${Object.entries(GAMES).map(([k,g])=>gameCard(k,g)).join("")}</div>
+  `);
 }
 
 function gameCard(k,g){
@@ -1459,11 +1392,8 @@ function renderModal(){
 function startGame(type){
   S.modal=null;
   S.game={type};
-  if(type==="minesweeper") return minesweeper();
   if(type==="shisen") return shisen();
-  if(type==="shisenBattle") return shisenBattle();
-  if(type==="omok") return omok();
-  if(type==="tetris") return tetris();
+  if(type==="holdem") return holdem();
   toast("게임을 불러오지 못했어요.");
 }
 window.startGame=startGame;
@@ -1501,6 +1431,82 @@ function gamePage(
   `;
 }
 
+
+
+/* TEXAS HOLD'EM — single-table practice against three computer players */
+function holdem(){
+  const suits=["♠","♥","♦","♣"], ranks=["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
+  const value=r=>r==="A"?14:r==="K"?13:r==="Q"?12:r==="J"?11:Number(r);
+  const deck=[];for(const s of suits)for(const r of ranks)deck.push({s,r,v:value(r)});
+  for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]]}
+  const players=[{name:S.user?.username||"나",human:true,chips:1000,hand:[deck.pop(),deck.pop()],fold:false},{name:"토끼봇",chips:1000,hand:[deck.pop(),deck.pop()],fold:false},{name:"구름봇",chips:1000,hand:[deck.pop(),deck.pop()],fold:false},{name:"별봇",chips:1000,hand:[deck.pop(),deck.pop()],fold:false}];
+  let community=[],pot=200,street=0,over=false,notice="프리플랍 · 내 카드 2장으로 시작해요.";
+  const streets=["프리플랍","플랍","턴","리버","쇼다운"];
+  const card=c=>c?'<span class="poker-card '+("♥♦".includes(c.s)?"red":"")+'"><b>'+c.r+'</b><i>'+c.s+'</i></span>':'<span class="poker-card back">🂠</span>';
+  const scoreFive=cs=>{
+    const vals=cs.map(c=>c.v).sort((a,b)=>b-a), counts={};vals.forEach(v=>counts[v]=(counts[v]||0)+1);
+    const groups=Object.entries(counts).map(([v,n])=>({v:Number(v),n})).sort((a,b)=>b.n-a.n||b.v-a.v);
+    const flush=cs.every(c=>c.s===cs[0].s);
+    const uniq=[...new Set(vals)];let straight=0;
+    for(let i=0;i<uniq.length-4;i++)if(uniq[i]-uniq[i+4]===4)straight=uniq[i];
+    if(uniq.includes(14)&&[5,4,3,2].every(v=>uniq.includes(v)))straight=5;
+    if(flush&&straight)return [8,straight];
+    if(groups[0].n===4)return [7,groups[0].v,groups[1].v];
+    if(groups[0].n===3&&groups[1].n===2)return [6,groups[0].v,groups[1].v];
+    if(flush)return [5,...vals];
+    if(straight)return [4,straight];
+    if(groups[0].n===3)return [3,groups[0].v,...groups.slice(1).map(g=>g.v).sort((a,b)=>b-a)];
+    const pairs=groups.filter(g=>g.n===2).map(g=>g.v).sort((a,b)=>b-a);
+    if(pairs.length>=2)return [2,pairs[0],pairs[1],...vals.filter(v=>v!==pairs[0]&&v!==pairs[1]).slice(0,1)];
+    if(pairs.length===1)return [1,pairs[0],...vals.filter(v=>v!==pairs[0])];
+    return [0,...vals];
+  };
+  const best=cs=>{let out=null;for(let a=0;a<cs.length-4;a++)for(let b=a+1;b<cs.length-3;b++)for(let c=b+1;c<cs.length-2;c++)for(let d=c+1;d<cs.length-1;d++)for(let e=d+1;e<cs.length;e++){const x=scoreFive([cs[a],cs[b],cs[c],cs[d],cs[e]]);if(!out||cmp(x,out)>0)out=x}return out||[0]};
+  const cmp=(a,b)=>{for(let i=0;i<Math.max(a.length,b.length);i++){const d=(a[i]||0)-(b[i]||0);if(d)return d}return 0};
+  const handName=s=>["하이 카드","원 페어","투 페어","쓰리 오브 어 카인드","스트레이트","플러시","풀 하우스","포 카드","스트레이트 플러시"][s[0]]||"하이 카드";
+  const render=()=>{
+    $("#app").innerHTML=shell(gamePage("♠️ 텍사스 홀덤",`
+      <style>
+      .poker-table{background:radial-gradient(ellipse,#208a68,#07563f);border:8px solid #8b5a36;border-radius:46%/34%;padding:22px 12px;color:#fff;text-align:center;box-shadow:inset 0 0 0 3px #d4b083;min-height:190px}
+      .poker-cards{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin:10px 0}
+      .poker-card{background:#fff;color:#18202a;border-radius:7px;width:43px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 2px 5px #0003;font-size:20px;font-weight:800}
+      .poker-card i{font-style:normal;font-size:18px}.poker-card.red{color:#df334b}.poker-card.back{background:#d9e8ff;color:#5680bd}
+      .poker-players{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:12px 0}.poker-seat{background:#fff;color:#24344a;border-radius:12px;padding:10px 4px;font-size:12px}.poker-seat strong{display:block;font-size:13px}.poker-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+      </style>
+      <div class="poker-table"><div>🪙 POT <b>${pot}</b></div><div class="poker-cards">${community.length?community.map(card).join(""):'<span>공용 카드 공개를 기다리는 중</span>'}</div><small>${streets[Math.min(street,4)]}</small></div>
+      <div class="poker-players">${players.slice(1).map(p=>'<div class="poker-seat"><strong>'+(p.fold?'🪑 폴드': '🐰 '+p.name)+'</strong><span>칩 '+p.chips+'</span>'+(over&&!p.fold?'<div class="poker-cards">'+p.hand.map(card).join("")+'</div>':'')+'</div>').join("")}</div>
+      <section class="card" style="padding:14px;margin-top:12px"><b>내 카드</b><div class="poker-cards">${players[0].hand.map(card).join("")}</div><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>보유 칩 <b>${players[0].chips}</b></span><span>현재 팟 <b>${pot}</b></span></div></section>
+      <p class="section-sub" style="text-align:center">${notice}</p>
+      ${!over?'<div class="poker-actions"><button class="secondary" onclick="window.holdemAction(\'fold\')">폴드</button><button class="primary" onclick="window.holdemAction(\'call\')">체크 / 콜</button><button class="primary" onclick="window.holdemAction(\'raise\')">레이즈 +100</button></div>':'<button class="primary" style="width:100%" onclick="window.startGame(\'holdem\')">다시 하기</button>'}
+      <p class="muted" style="font-size:12px;text-align:center;margin-top:12px">연습용 홀덤 · 게임 내 가상 칩만 사용합니다.</p>
+    `));
+  };
+  const next=()=>{
+    players.slice(1).forEach(p=>{if(!p.fold&&Math.random()<0.12){p.fold=true;notice+= " "+p.name+" 폴드."}});
+    if(street===0)community.push(deck.pop(),deck.pop(),deck.pop());
+    else if(street===1||street===2)community.push(deck.pop());
+    street++;
+    if(street>=4||community.length===5||players.slice(1).every(p=>p.fold)){showdown();return}
+    notice=streets[street]+" · 상대의 액션이 끝났어요. 다음 선택을 해주세요.";render();
+  };
+  const showdown=()=>{
+    over=true;street=4;
+    const active=players.filter(p=>!p.fold);active.forEach(p=>p.rank=best([...p.hand,...community]));
+    active.sort((a,b)=>cmp(b.rank,a.rank));const winner=active[0];
+    if(winner.human){winner.chips+=pot;notice="🏆 승리! "+handName(winner.rank)+"으로 팟 "+pot+"칩을 가져왔어요.";api("/api/game-result",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({game:"holdem",score:Math.max(400,pot)})}).then(d=>{if(d.user)S.user=d.user;toast(d.message||"홀덤 승리!")}).catch(()=>{})}
+    else notice="이번 판은 "+winner.name+" 승리 · "+handName(winner.rank)+". 다시 도전해봐요!";
+    render();
+  };
+  window.holdemAction=act=>{
+    if(over)return;
+    const me=players[0];
+    if(act==="fold"){me.fold=true;over=true;notice="폴드했어요. 다음 판에서 다시 도전하세요.";render();return}
+    if(act==="raise"){const bet=Math.min(100,me.chips);me.chips-=bet;pot+=bet;players.slice(1).forEach(p=>{if(!p.fold&&Math.random()<0.45)p.fold=true;else if(!p.fold){const call=Math.min(100,p.chips);p.chips-=call;pot+=call}})}
+    else players.slice(1).forEach(p=>{if(!p.fold&&Math.random()<0.08)p.fold=true});
+    next();
+  };
+  render();
+}
 
 /* =========================================================
    MINESWEEPER
