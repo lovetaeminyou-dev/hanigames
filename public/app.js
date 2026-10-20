@@ -1541,7 +1541,7 @@ function holdem(){
     over=true;street=4;
     const active=players.filter(p=>!p.fold);active.forEach(p=>p.rank=best([...p.hand,...community]));
     active.sort((a,b)=>cmp(b.rank,a.rank));const winner=active[0];
-    if(winner.human){winner.chips+=pot;notice="🏆 승리! "+handName(winner.rank)+"으로 팟 "+pot+"칩을 가져왔어요.";api("/api/game-result",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({game:"holdem",score:Math.max(400,Math.floor(pot))})}).then(d=>{if(d.user)S.user=d.user;toast(d.message||"홀덤 승리!")}).catch(()=>{})}
+    if(winner.human){winner.chips+=pot;notice="🏆 승리! "+handName(winner.rank)+"으로 팟 "+pot+"칩을 가져왔어요.";api("/api/game-result",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({game:"holdem",mode:"bot",won:true})}).then(d=>{if(d.user)S.user=d.user;notice+=" "+(d.message||"봇전 보상 처리 완료");render();toast(d.message||"홀덤 승리!")}).catch(()=>{})}
     else notice="이번 판은 "+winner.name+" 승리 · "+handName(winner.rank)+". 다시 도전해봐요!";
     render();
   };
