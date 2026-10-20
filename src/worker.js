@@ -675,7 +675,7 @@ async function gameResult(request, env) {
   const game=String(body.game||"");
   const score=Math.max(0,Math.min(5000,Math.floor(Number(body.score||0))));
   const combo=Math.max(0,Math.min(100,Math.floor(Number(body.combo||0))));
-  const allowed=["shisen","minesweeper","tetris","omok"];
+  const allowed=["shisen","holdem","minesweeper","tetris","omok"];
   if(!allowed.includes(game)||score<=0)return json({error:"유효하지 않은 게임 결과입니다."},400);
   const reward=Math.min(1500,Math.max(100,Math.floor(score*0.25)));
   const xp=Math.min(100,Math.floor(score/50));
