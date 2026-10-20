@@ -1538,7 +1538,7 @@ function mafia(){
       if(selected===0||!players[selected]?.alive||players[selected].role==="mafia"){toast("제거할 대상을 선택해 주세요.");return}
       killed=players[selected];
     }else if(mafia){
-      const targets=valid.filter(p=>p.role!=="mafia");
+      const targets=alive().filter(p=>p.role!=="mafia");
       if(targets.length)killed=targets[Math.floor(Math.random()*targets.length)];
     }
     if(me.role==="doctor"){
