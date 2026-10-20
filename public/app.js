@@ -1,6 +1,7 @@
 const GAMES={
   shisen:{name:"사천성",icon:"🀄",desc:"같은 타일을 두 번 이하로 꺾어 연결해 모두 제거하세요."},
-  holdem:{name:"텍사스 홀덤",icon:"♠️",desc:"공용 카드 5장과 내 카드 2장으로 최고의 족보를 만들어 보세요."}
+  holdem:{name:"텍사스 홀덤",icon:"♠️",desc:"공용 카드 5장과 내 카드 2장으로 최고의 족보를 만들어 보세요."},
+  mafia:{name:"마피아 게임",icon:"🕵️",desc:"시민들 사이에 숨은 마피아를 찾아 투표로 추방하세요."}
 };
 
 let S={
@@ -803,8 +804,8 @@ async function games(){
   const stakeOptions=[500,1000,5000];
   $("#app").innerHTML=shell(`
     <div class="section-title">게임</div>
-    <div class="section-sub">사천성 · 텍사스 홀덤</div>
-    <div class="game-grid">${gameCard("shisen",GAMES.shisen)}${gameCard("holdem",GAMES.holdem)}</div>
+    <div class="section-sub">사천성 · 텍사스 홀덤 · 마피아</div>
+    <div class="game-grid">${gameCard("shisen",GAMES.shisen)}${gameCard("holdem",GAMES.holdem)}${gameCard("mafia",GAMES.mafia)}</div>
     <section class="card" style="margin-top:18px;padding:16px">
       <h2 style="margin-top:0">♠️ 홀덤 테이블</h2>
       <p class="section-sub">방마다 참가 포인트가 달라요. 사람이 없으면 봇과 연습할 수 있어요.</p>
@@ -1441,6 +1442,7 @@ function startGame(type){
   S.game={type};
   if(type==="shisen") return shisen();
   if(type==="holdem") return holdem();
+  if(type==="mafia") return mafia();
   toast("게임을 불러오지 못했어요.");
 }
 window.startGame=startGame;
@@ -1479,6 +1481,94 @@ function gamePage(
 }
 
 
+
+
+/* MAFIA — single-player social deduction against bots */
+function mafia(){
+  const names=["나","토끼봇","구름봇","별봇","모찌봇","달구봇"];
+  const roles=["mafia","detective","doctor","citizen","citizen","citizen"];
+  for(let i=roles.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[roles[i],roles[j]]=[roles[j],roles[i]]}
+  const players=names.map((name,i)=>({id:i,name,role:roles[i],alive:true}));
+  const me=players[0];
+  let phase="intro",day=1,log=["마피아 게임 시작! 밤에는 특수 능력을 사용하고, 낮에는 토론 후 투표해요."],selected=1,over=false;
+  const roleName=r=>({mafia:"마피아",detective:"경찰",doctor:"의사",citizen:"시민"}[r]||"시민");
+  const alive=()=>players.filter(p=>p.alive);
+  const mafiaAlive=()=>alive().filter(p=>p.role==="mafia").length;
+  const townAlive=()=>alive().filter(p=>p.role!=="mafia").length;
+  const winner=()=>mafiaAlive()===0?"town":mafiaAlive()>=townAlive()?"mafia":null;
+  const escapeName=p=>esc(p.name);
+  const say=(s)=>{log.unshift(s);log=log.slice(0,8)};
+  const options=(filter)=>alive().filter(filter);
+  function render(){
+    const result=winner();
+    if(result){over=true;phase="end";say(result==="town"?"🎉 시민 팀 승리! 마피아를 모두 찾았어요.":"🕶️ 마피아 팀 승리! 시민들이 수적으로 밀렸어요.");}
+    const targetOptions=options(p=>p.id!==0);
+    const choices=targetOptions.map(p=>'<button class="'+(selected===p.id?"primary":"secondary")+'" onclick="window.mafiaSelect('+p.id+')" style="padding:10px;min-width:90px">'+(p.alive?"🟢 ":"⚫ ")+escapeName(p)+'</button>').join("");
+    const playerCards=players.map(p=>'<div class="card" style="padding:10px;text-align:center;opacity:'+(p.alive?1:.55)+'"><div style="font-size:24px">'+(p.alive?"🙂":"💀")+'</div><b>'+escapeName(p)+'</b><div class="section-sub">'+(p.id===0?roleName(p.role):(p.alive?"생존":"탈락"))+'</div></div>').join("");
+    let instruction="";
+    if(phase==="intro")instruction='<p>당신의 역할은 <b>'+roleName(me.role)+'</b>입니다. 시민 팀은 마피아를 찾아내고, 마피아는 시민 수를 줄이세요.</p><button class="primary" style="width:100%" onclick="window.mafiaNext()">밤 시작</button>';
+    if(phase==="night"){
+      instruction='<p>🌙 '+day+'일 차 밤이에요. '+(me.role==="mafia"?"제거할 사람을 선택하세요.":me.role==="doctor"?"지킬 사람을 선택하세요.":me.role==="detective"?"조사할 사람을 선택하세요.":"시민은 밤에 행동할 수 없어요.")+'</p>';
+      if(["mafia","doctor","detective"].includes(me.role))instruction+='<div style="display:flex;flex-wrap:wrap;gap:8px">'+choices+'</div>';
+      instruction+='<button class="primary" style="width:100%;margin-top:12px" onclick="window.mafiaNight()">밤 행동 확정</button>';
+    }
+    if(phase==="day")instruction='<p>☀️ 아침이 밝았어요. 의심되는 사람에게 투표하세요.</p><div style="display:flex;flex-wrap:wrap;gap:8px">'+choices+'</div><button class="primary" style="width:100%;margin-top:12px" onclick="window.mafiaVote()">투표하기</button>';
+    if(phase==="end")instruction='<h2>'+ (winner()==="town"?"🎉 시민 팀 승리!":"🕶️ 마피아 팀 승리!")+'</h2><p>게임이 끝났어요. 다시 플레이해서 다른 역할도 경험해 보세요.</p><button class="primary" style="width:100%" onclick="window.startGame(\'mafia\')">다시 하기</button>';
+    $("#app").innerHTML=shell(gamePage("🕵️ 마피아 게임",`
+      <div class="card" style="padding:16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><b>${phase==="night"?"🌙 밤":phase==="day"?"☀️ 낮":phase==="end"?"🏁 결과":"🎭 역할 확인"}</b><span class="tag">${day}일 차</span></div>
+        <div class="section-sub" style="margin-top:6px">6명 플레이 · 봇 5명 · 연습 모드</div>
+        <div class="grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px">${playerCards}</div>
+      </div>
+      <div class="card" style="padding:16px;margin-bottom:12px"><h3 style="margin-top:0">게임 진행</h3>${instruction}</div>
+      <div class="card" style="padding:14px"><b>기록</b><div style="margin-top:8px">${log.map(x=>'<p style="margin:6px 0">'+esc(x)+'</p>').join("")}</div></div>
+    `));
+  }
+  window.mafiaSelect=id=>{selected=id;render()};
+  window.mafiaNext=()=>{
+    if(phase==="intro"){phase="night";render();return}
+    if(phase==="day"){phase="night";day++;render();return}
+  };
+  window.mafiaNight=()=>{
+    if(phase!=="night")return;
+    let killed=null,saved=null;
+    const valid=alive().filter(p=>p.id!==0);
+    const mafia=alive().find(p=>p.role==="mafia");
+    if(me.role==="mafia"){
+      if(selected===0||!players[selected]?.alive||players[selected].role==="mafia"){toast("제거할 대상을 선택해 주세요.");return}
+      killed=players[selected];
+    }else if(mafia){
+      const targets=valid.filter(p=>p.role!=="mafia");
+      if(targets.length)killed=targets[Math.floor(Math.random()*targets.length)];
+    }
+    if(me.role==="doctor"){
+      if(!players[selected]?.alive){toast("지킬 대상을 선택해 주세요.");return}
+      saved=players[selected];
+    }else{
+      const docs=alive().filter(p=>p.role==="doctor");
+      if(docs.length&&Math.random()<.65)saved=docs[Math.floor(Math.random()*docs.length)];
+    }
+    if(me.role==="detective"){
+      if(!players[selected]?.alive){toast("조사할 대상을 선택해 주세요.");return}
+      say("🔎 조사 결과: "+players[selected].name+"은(는) "+(players[selected].role==="mafia"?"마피아입니다!":"마피아가 아닙니다."));
+    }
+    if(killed&&saved?.id===killed.id){say("💉 의사가 누군가를 살렸어요. 아무도 죽지 않았어요.")}
+    else if(killed){killed.alive=false;say("💀 밤사이 "+killed.name+"이(가) 사망했어요.");}
+    else say("🌙 밤이 조용히 지나갔어요.");
+    phase="day";selected=alive().find(p=>p.id!==0)?.id??0;render();
+  };
+  window.mafiaVote=()=>{
+    if(phase!=="day")return;
+    if(!players[selected]?.alive||selected===0){toast("투표할 대상을 선택해 주세요.");return}
+    const votes={};votes[selected]=(votes[selected]||0)+1;
+    alive().filter(p=>p.id!==0).forEach(p=>{if(Math.random()<.78){const candidates=alive().filter(t=>t.id!==p.id);if(candidates.length){const t=candidates[Math.floor(Math.random()*candidates.length)];votes[t.id]=(votes[t.id]||0)+1}}});
+    const max=Math.max(...Object.values(votes));const tops=Object.keys(votes).filter(id=>votes[id]===max).map(Number);const out=players[tops[Math.floor(Math.random()*tops.length)]];
+    if(out){out.alive=false;say("🗳️ 투표 결과 "+out.name+"이(가) 추방됐어요. 역할은 "+roleName(out.role)+"이었어요.");}
+    if(!winner()){phase="night";day++;selected=alive().find(p=>p.id!==0)?.id??0}
+    render();
+  };
+  render();
+}
 
 /* TEXAS HOLD'EM — single-table practice against three computer players */
 function holdem(){
