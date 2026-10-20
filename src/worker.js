@@ -1014,7 +1014,8 @@ async function rooms(
     const allowed = [
       "omok",
       "tetris",
-      "shisen"
+      "shisen",
+      "holdem"
     ];
 
     if (
