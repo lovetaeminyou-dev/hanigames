@@ -673,9 +673,36 @@ async function gameResult(request, env) {
   if(!user)return json({error:"로그인이 필요합니다."},401);
   const body=await readJson(request);
   const game=String(body.game||"");
+
+  // 홀덤 봇전은 승리 1회당 50P, 한국 날짜 기준 하루 최대 10회.
+  // 보상 기록은 서버에서 관리해 하루 보상 상한을 넘지 않도록 합니다.
+  if(game==="holdem" && body.mode==="bot" && body.won===true){
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS holdem_bot_rewards (
+        user_id INTEGER NOT NULL,
+        reward_date TEXT NOT NULL,
+        wins INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(user_id, reward_date)
+      )
+    `).run();
+    const dateRow=await env.DB.prepare("SELECT date('now','+9 hours') AS today").first();
+    const today=dateRow?.today;
+    await env.DB.prepare("INSERT OR IGNORE INTO holdem_bot_rewards(user_id,reward_date,wins) VALUES(?,?,0)").bind(user.id,today).run();
+    const claim=await env.DB.prepare("UPDATE holdem_bot_rewards SET wins=wins+1 WHERE user_id=? AND reward_date=? AND wins<10").bind(user.id,today).run();
+    if(!claim.meta?.changes){
+      const updated=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(user.id).first();
+      return json({message:"오늘 봇전 포인트 보상 10회를 모두 받았어요. 내일 다시 도전해요!",reward:0,limitReached:true,user:publicUser(updated)});
+    }
+    await env.DB.prepare("UPDATE users SET points=points+50 WHERE id=?").bind(user.id).run();
+    const updated=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(user.id).first();
+    const count=await env.DB.prepare("SELECT wins FROM holdem_bot_rewards WHERE user_id=? AND reward_date=?").bind(user.id,today).first();
+    return json({message:"🤖 봇전 승리! +50P ("+Number(count?.wins||0)+"/10회)",reward:50,dailyWins:Number(count?.wins||0),user:publicUser(updated)});
+  }
+
+  // 일반 게임의 점수 보상. 홀덤은 봇 승리 보상 경로만 허용합니다.
   const score=Math.max(0,Math.min(5000,Math.floor(Number(body.score||0))));
   const combo=Math.max(0,Math.min(100,Math.floor(Number(body.combo||0))));
-  const allowed=["shisen","holdem","minesweeper","tetris","omok"];
+  const allowed=["shisen","minesweeper","tetris","omok"];
   if(!allowed.includes(game)||score<=0)return json({error:"유효하지 않은 게임 결과입니다."},400);
   const reward=Math.min(1500,Math.max(100,Math.floor(score*0.25)));
   const xp=Math.min(100,Math.floor(score/50));
@@ -1807,7 +1834,7 @@ export default {
     ========================= */
 
     if (url.pathname === "/" || url.pathname === "") {
-      return new Response("<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\"><meta name=\"theme-color\" content=\"#eef8ff\"><title>하니게임즈</title><link rel="stylesheet" href="/style.css?v=20261008-5"><style>html,body{margin:0;min-height:100%;background:#eef8ff;font-family:system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}#boot{min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}.card{width:min(420px,100%);box-sizing:border-box;background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 35px rgba(70,130,170,.15);text-align:center}.bunny{font-size:64px}.title{font-size:28px;font-weight:900;color:#4d7fae;margin:8px}.sub{color:#7890a3}button{width:100%;padding:14px;border:0;border-radius:12px;background:#69a9dc;color:#fff;font-weight:800;font-size:16px;margin-top:8px}</style></head><body><div id=\"boot\"><div class=\"card\"><div class=\"bunny\">🐰</div><div class=\"title\">하니게임즈</div><div class=\"sub\">하니게임즈를 불러오는 중이에요 💙</div></div></div><script>setTimeout(function(){var e=document.querySelector(\".sub\");if(e)e.textContent=\"하니게임즈 불러오는 중…\";},300);</script><script src=\"/app.js?v=20261020-3\"></script><script src=\"/battle.js?v=20261008-1\"></script></body></html>", {
+      return new Response("<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\"><meta name=\"theme-color\" content=\"#eef8ff\"><title>하니게임즈</title><link rel="stylesheet" href="/style.css?v=20261008-5"><style>html,body{margin:0;min-height:100%;background:#eef8ff;font-family:system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}#boot{min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}.card{width:min(420px,100%);box-sizing:border-box;background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 35px rgba(70,130,170,.15);text-align:center}.bunny{font-size:64px}.title{font-size:28px;font-weight:900;color:#4d7fae;margin:8px}.sub{color:#7890a3}button{width:100%;padding:14px;border:0;border-radius:12px;background:#69a9dc;color:#fff;font-weight:800;font-size:16px;margin-top:8px}</style></head><body><div id=\"boot\"><div class=\"card\"><div class=\"bunny\">🐰</div><div class=\"title\">하니게임즈</div><div class=\"sub\">하니게임즈를 불러오는 중이에요 💙</div></div></div><script>setTimeout(function(){var e=document.querySelector(\".sub\");if(e)e.textContent=\"하니게임즈 불러오는 중…\";},300);</script><script src=\"/app.js?v=20261020-4\"></script><script src=\"/battle.js?v=20261008-1\"></script></body></html>", {
         headers: {
           "content-type": "text/html; charset=UTF-8",
           "cache-control": "no-store, no-cache, must-revalidate"
