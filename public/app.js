@@ -806,6 +806,7 @@ async function games(){
     <div class="section-title">게임</div>
     <div class="section-sub">사천성 · 텍사스 홀덤 · 마피아</div>
     <div class="game-grid">${gameCard("shisen",GAMES.shisen)}${gameCard("holdem",GAMES.holdem)}${gameCard("mafia",GAMES.mafia)}</div>
+    ${roomSection("shisen","⚔️ 사천성 유저 대전")}
     <section class="card" style="margin-top:18px;padding:16px">
       <h2 style="margin-top:0">♠️ 홀덤 테이블</h2>
       <p class="section-sub">방마다 참가 포인트가 달라요. 사람이 없으면 봇과 연습할 수 있어요.</p>
@@ -1578,7 +1579,7 @@ function holdem(){
   const deck=[];for(const s of suits)for(const r of ranks)deck.push({s,r,v:value(r)});
   for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]]}
   const players=[{name:S.user?.username||"나",human:true,chips:buyIn,hand:[deck.pop(),deck.pop()],fold:false},{name:"토끼봇",chips:buyIn,hand:[deck.pop(),deck.pop()],fold:false},{name:"구름봇",chips:buyIn,hand:[deck.pop(),deck.pop()],fold:false},{name:"별봇",chips:buyIn,hand:[deck.pop(),deck.pop()],fold:false}];
-  let community=[],pot=Math.min(200,buyIn*4),street=0,over=false,notice="프리플랍 · 내 카드 2장으로 시작해요.";
+  let community=[],pot=Math.min(200,buyIn*4),street=0,over=false,notice="프리플랍 · 내 카드 2장으로 시작해요.",currentTurn=0,busy=false;
   const streets=["프리플랍","플랍","턴","리버","쇼다운"];
   const card=c=>c?'<span class="poker-card '+("♥♦".includes(c.s)?"red":"")+'"><b>'+c.r+'</b><i>'+c.s+'</i></span>':'<span class="poker-card back">🂠</span>';
   const scoreFive=cs=>{
@@ -1612,20 +1613,38 @@ function holdem(){
       .poker-players{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:12px 0}.poker-seat{background:#fff;color:#24344a;border-radius:12px;padding:10px 4px;font-size:12px}.poker-seat strong{display:block;font-size:13px}.poker-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
       </style>
       <div class="poker-table"><div>🪙 POT <b>${pot}</b></div><div class="poker-cards">${community.length?community.map(card).join(""):'<span>공용 카드 공개를 기다리는 중</span>'}</div><small>${streets[Math.min(street,4)]}</small></div>
-      <div class="poker-players">${players.slice(1).map(p=>'<div class="poker-seat"><strong>'+(p.fold?'🪑 폴드': '🐰 '+p.name)+'</strong><span>칩 '+p.chips+'</span>'+(over&&!p.fold?'<div class="poker-cards">'+p.hand.map(card).join("")+'</div>':'')+'</div>').join("")}</div>
+      <div class="poker-players">${players.slice(1).map((p,i)=>'<div class="poker-seat '+(currentTurn===i+1&&!over?"turn":"")+'"><strong>'+(p.fold?'🪑 폴드':'🐰 '+p.name)+'</strong><span>칩 '+p.chips+'</span>'+(over&&!p.fold?'<div class="poker-cards">'+p.hand.map(card).join("")+'</div>':'')+'</div>').join("")}</div>
       <section class="card" style="padding:14px;margin-top:12px"><b>내 카드</b><div class="poker-cards">${players[0].hand.map(card).join("")}</div><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span>보유 칩 <b>${players[0].chips}</b></span><span>현재 팟 <b>${pot}</b></span></div></section>
-      <p class="section-sub" style="text-align:center">${notice}</p>
+      <p class="section-sub" style="text-align:center"><b>현재 차례:</b> ${over?"판 종료":(currentTurn===0?(S.user?.username||"나"):players[currentTurn]?.name||"상대")} · ${notice}</p>
       ${!over?'<div class="poker-actions"><button class="secondary" onclick="window.holdemAction(\'fold\')">폴드</button><button class="primary" onclick="window.holdemAction(\'call\')">체크 / 콜</button><button class="primary" onclick="window.holdemAction(\'raise\')">레이즈 +100</button></div>':'<button class="primary" style="width:100%" onclick="window.startGame(\'holdem\')">다시 하기</button>'}
       <p class="muted" style="font-size:12px;text-align:center;margin-top:12px">연습용 홀덤 · 게임 내 가상 칩만 사용합니다.</p>
     `));
   };
   const next=()=>{
-    players.slice(1).forEach(p=>{if(!p.fold&&Math.random()<0.12){p.fold=true;notice+= " "+p.name+" 폴드."}});
-    if(street===0)community.push(deck.pop(),deck.pop(),deck.pop());
-    else if(street===1||street===2)community.push(deck.pop());
-    street++;
-    if(street>=4||community.length===5||players.slice(1).every(p=>p.fold)){showdown();return}
-    notice=streets[street]+" · 상대의 액션이 끝났어요. 다음 선택을 해주세요.";render();
+    const bots=players.slice(1);let i=0;busy=true;
+    const actNext=()=>{
+      if(over)return;
+      if(i>=bots.length){
+        if(players.slice(1).every(p=>p.fold)){showdown();return}
+        if(street===0)community.push(deck.pop(),deck.pop(),deck.pop());
+        else if(street===1||street===2)community.push(deck.pop());
+        street++;
+        if(street>=4||community.length===5){showdown();return}
+        currentTurn=0;busy=false;notice=streets[street]+" · 다시 내 차례예요. 체크 또는 레이즈를 선택하세요.";render();return;
+      }
+      const p=bots[i];
+      if(p.fold){i++;actNext();return}
+      currentTurn=i+1;notice=p.name+" 차례예요. 액션을 기다리는 중…";render();
+      setTimeout(()=>{
+        if(over)return;
+        const roll=Math.random();
+        if(roll<0.12){p.fold=true;notice=p.name+" 폴드했어요."}
+        else if(roll<0.32&&p.chips>0){const call=Math.min(100,p.chips);p.chips-=call;pot+=call;notice=p.name+" 콜했어요."}
+        else notice=p.name+" 체크했어요.";
+        render();i++;actNext();
+      },450);
+    };
+    actNext();
   };
   const showdown=()=>{
     over=true;street=4;
@@ -1636,11 +1655,11 @@ function holdem(){
     render();
   };
   window.holdemAction=act=>{
-    if(over)return;
+    if(over||busy||currentTurn!==0)return;
     const me=players[0];
     if(act==="fold"){me.fold=true;over=true;notice="폴드했어요. 다음 판에서 다시 도전하세요.";render();return}
-    if(act==="raise"){const bet=Math.min(100,me.chips);me.chips-=bet;pot+=bet;players.slice(1).forEach(p=>{if(!p.fold&&Math.random()<0.45)p.fold=true;else if(!p.fold){const call=Math.min(100,p.chips);p.chips-=call;pot+=call}})}
-    else players.slice(1).forEach(p=>{if(!p.fold&&Math.random()<0.08)p.fold=true});
+    if(act==="raise"){const bet=Math.min(100,me.chips);me.chips-=bet;pot+=bet;notice="내가 레이즈 +100 했어요."}
+    else notice="내가 체크 / 콜했어요.";
     next();
   };
   render();
