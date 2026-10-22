@@ -582,6 +582,72 @@ async function me(request, env) {
    ATTENDANCE
 ========================= */
 
+
+const DAILY_MISSIONS = [
+ {key:"first_game",title:"첫 게임",description:"오늘 게임 결과 1회 등록",target:1,reward:100},
+ {key:"game_three",title:"게임 매니아",description:"오늘 게임 결과 3회 등록",target:3,reward:250},
+ {key:"holdem_win",title:"홀덤 도전자",description:"홀덤 봇전 1승",target:1,reward:150}
+];
+async function ensureMissionTables(env){
+ await env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_mission_progress (
+ user_id INTEGER NOT NULL, mission_date TEXT NOT NULL, mission_key TEXT NOT NULL,
+ progress INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(user_id,mission_date,mission_key))`).run();
+ await env.DB.prepare(`CREATE TABLE IF NOT EXISTS daily_mission_claims (
+ user_id INTEGER NOT NULL, mission_date TEXT NOT NULL, mission_key TEXT NOT NULL,
+ reward INTEGER NOT NULL, claimed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(user_id,mission_date,mission_key))`).run();
+}
+async function missionDate(env){
+ const row=await env.DB.prepare("SELECT date('now','+9 hours') AS today").first();
+ return row?.today;
+}
+async function addMissionProgress(env,userId,missionKey,amount=1){
+ await ensureMissionTables(env);
+ const date=await missionDate(env);
+ if(!date)throw new Error("오늘 날짜를 확인하지 못했습니다.");
+ await env.DB.prepare(`INSERT INTO daily_mission_progress
+ (user_id,mission_date,mission_key,progress) VALUES(?,?,?,?)
+ ON CONFLICT(user_id,mission_date,mission_key)
+ DO UPDATE SET progress=MIN(daily_mission_progress.progress+excluded.progress,100000)`)
+ .bind(userId,date,missionKey,amount).run();
+}
+async function recordGameMissionProgress(env,userId,game,won=false){
+ await addMissionProgress(env,userId,"first_game",1);
+ await addMissionProgress(env,userId,"game_three",1);
+ if(game==="holdem"&&won)await addMissionProgress(env,userId,"holdem_win",1);
+}
+async function dailyMissions(request,env){
+ const user=await getCurrentUser(request,env);
+ if(!user)return json({error:"로그인이 필요합니다."},401);
+ await ensureMissionTables(env);
+ const date=await missionDate(env);
+ const [p,c]=await Promise.all([
+  env.DB.prepare("SELECT mission_key,progress FROM daily_mission_progress WHERE user_id=? AND mission_date=?").bind(user.id,date).all(),
+  env.DB.prepare("SELECT mission_key FROM daily_mission_claims WHERE user_id=? AND mission_date=?").bind(user.id,date).all()
+ ]);
+ const progress=Object.fromEntries((p.results||[]).map(r=>[r.mission_key,Number(r.progress||0)]));
+ const claimed=new Set((c.results||[]).map(r=>r.mission_key));
+ return json({date,missions:DAILY_MISSIONS.map(m=>({...m,progress:Math.min(m.target,progress[m.key]||0),claimed:claimed.has(m.key)}))});
+}
+async function claimDailyMission(request,env){
+ const user=await getCurrentUser(request,env);
+ if(!user)return json({error:"로그인이 필요합니다."},401);
+ await ensureMissionTables(env);
+ const body=await readJson(request);
+ const mission=DAILY_MISSIONS.find(m=>m.key===String(body.key||""));
+ if(!mission)return json({error:"존재하지 않는 미션입니다."},400);
+ const date=await missionDate(env);
+ const p=await env.DB.prepare("SELECT progress FROM daily_mission_progress WHERE user_id=? AND mission_date=? AND mission_key=?").bind(user.id,date,mission.key).first();
+ if(Number(p?.progress||0)<mission.target)return json({error:"아직 미션을 완료하지 않았어요."},400);
+ const results=await env.DB.batch([
+  env.DB.prepare("INSERT OR IGNORE INTO daily_mission_claims(user_id,mission_date,mission_key,reward) VALUES(?,?,?,?)").bind(user.id,date,mission.key,mission.reward),
+  env.DB.prepare("UPDATE users SET points=points+? WHERE id=? AND changes()=1").bind(mission.reward,user.id)
+ ]);
+ if(!results?.[0]?.meta?.changes)return json({error:"이미 보상을 받았어요."},409);
+ const updated=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(user.id).first();
+ return json({message:`🎁 ${mission.title} 보상 +${mission.reward}P`,reward:mission.reward,user:publicUser(updated)});
+}
+
 async function attendance(request, env) {
   const user = await getCurrentUser(request, env);
 
@@ -694,6 +760,7 @@ async function gameResult(request, env) {
       return json({message:"오늘 봇전 포인트 보상 10회를 모두 받았어요. 내일 다시 도전해요!",reward:0,limitReached:true,user:publicUser(updated)});
     }
     await env.DB.prepare("UPDATE users SET points=points+50 WHERE id=?").bind(user.id).run();
+    await recordGameMissionProgress(env, user.id, "holdem", true);
     const updated=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(user.id).first();
     const count=await env.DB.prepare("SELECT wins FROM holdem_bot_rewards WHERE user_id=? AND reward_date=?").bind(user.id,today).first();
     return json({message:"🤖 봇전 승리! +50P ("+Number(count?.wins||0)+"/10회)",reward:50,dailyWins:Number(count?.wins||0),user:publicUser(updated)});
@@ -707,6 +774,7 @@ async function gameResult(request, env) {
   const reward=Math.min(1500,Math.max(100,Math.floor(score*0.25)));
   const xp=Math.min(100,Math.floor(score/50));
   await env.DB.prepare("UPDATE users SET points=points+?, xp=xp+?, wins=wins+1 WHERE id=?").bind(reward,xp,user.id).run();
+  await recordGameMissionProgress(env, user.id, game, false);
   const updated=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(user.id).first();
   return json({message:"🎮 "+game+" "+score.toLocaleString()+"점! +"+reward.toLocaleString()+"P",score,reward,combo,user:publicUser(updated)});
 }
@@ -1834,7 +1902,7 @@ export default {
     ========================= */
 
     if (url.pathname === "/" || url.pathname === "") {
-      return new Response("<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\"><meta name=\"theme-color\" content=\"#eef8ff\"><title>하니게임즈</title><link rel=\"stylesheet\" href=\"/style.css?v=20261008-5\"><style>html,body{margin:0;min-height:100%;background:#eef8ff;font-family:system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}#boot{min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}.card{width:min(420px,100%);box-sizing:border-box;background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 35px rgba(70,130,170,.15);text-align:center}.bunny{font-size:64px}.title{font-size:28px;font-weight:900;color:#4d7fae;margin:8px}.sub{color:#7890a3}button{width:100%;padding:14px;border:0;border-radius:12px;background:#69a9dc;color:#fff;font-weight:800;font-size:16px;margin-top:8px}</style></head><body><div id=\"boot\"><div class=\"card\"><div class=\"bunny\">🐰</div><div class=\"title\">하니게임즈</div><div class=\"sub\">하니게임즈를 불러오는 중이에요 💙</div></div></div><script>setTimeout(function(){var e=document.querySelector(\".sub\");if(e)e.textContent=\"하니게임즈 불러오는 중…\";},300);</script><script src=\"/app.js?v=20261022-9\"></script><script src=\"/battle.js?v=20261022-2\"></script></body></html>", {
+      return new Response("<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\"><meta name=\"theme-color\" content=\"#eef8ff\"><title>하니게임즈</title><link rel=\"stylesheet\" href=\"/style.css?v=20261008-5\"><style>html,body{margin:0;min-height:100%;background:#eef8ff;font-family:system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}#boot{min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}.card{width:min(420px,100%);box-sizing:border-box;background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 35px rgba(70,130,170,.15);text-align:center}.bunny{font-size:64px}.title{font-size:28px;font-weight:900;color:#4d7fae;margin:8px}.sub{color:#7890a3}button{width:100%;padding:14px;border:0;border-radius:12px;background:#69a9dc;color:#fff;font-weight:800;font-size:16px;margin-top:8px}</style></head><body><div id=\"boot\"><div class=\"card\"><div class=\"bunny\">🐰</div><div class=\"title\">하니게임즈</div><div class=\"sub\">하니게임즈를 불러오는 중이에요 💙</div></div></div><script>setTimeout(function(){var e=document.querySelector(\".sub\");if(e)e.textContent=\"하니게임즈 불러오는 중…\";},300);</script><script src=\"/app.js?v=20261022-11\"></script><script src=\"/battle.js?v=20261022-2\"></script></body></html>", {
         headers: {
           "content-type": "text/html; charset=UTF-8",
           "cache-control": "no-store, no-cache, must-revalidate"
@@ -1868,7 +1936,12 @@ export default {
     if (url.pathname === "/api/attendance" && request.method === "POST") {
       return attendance(request, env);
     }
-
+    if (url.pathname === "/api/missions" && request.method === "GET") {
+      return dailyMissions(request, env);
+    }
+    if (url.pathname === "/api/missions/claim" && request.method === "POST") {
+      return claimDailyMission(request, env);
+    }
     if (url.pathname === "/api/game-result" && request.method === "POST") {
       return gameResult(request, env);
     }
