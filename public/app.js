@@ -1626,10 +1626,10 @@ function holdem(){
       if(over)return;
       if(i>=bots.length){
         if(players.slice(1).every(p=>p.fold)){showdown();return}
-        if(street===0)community.push(deck.pop(),deck.pop(),deck.pop());
-        else if(street===1||street===2)community.push(deck.pop());
-        street++;
-        if(street>=4||community.length===5){showdown();return}
+        if(street===0){community.push(deck.pop(),deck.pop(),deck.pop());street=1}
+        else if(street===1){community.push(deck.pop());street=2}
+        else if(street===2){community.push(deck.pop());street=3}
+        else{showdown();return}
         currentTurn=0;busy=false;notice=streets[street]+" · 다시 내 차례예요. 체크 또는 레이즈를 선택하세요.";render();return;
       }
       const p=bots[i];
