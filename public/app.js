@@ -512,6 +512,14 @@ async function home(){
         </div>
         <button class="primary" style="white-space:nowrap;font-size:15px;padding:11px 14px" onclick="checkAttendance()">출석하기</button>
       </section>
+      <section class="card" style="padding:16px;margin-top:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div><div style="font-weight:950;font-size:18px">🎯 오늘의 미션</div>
+          <div class="muted" style="margin-top:4px">게임을 플레이하고 공통 포인트를 받아요.</div></div>
+          <button class="pill" onclick="renderDailyMissions()">새로고침</button>
+        </div>
+        <div id="daily-missions" style="margin-top:12px"><div class="muted">미션을 불러오는 중…</div></div>
+      </section>
 
       <section class="card hero">
 
@@ -722,8 +730,41 @@ async function home(){
       </div>
 
     `);
+  renderDailyMissions();
 }
-
+async function renderDailyMissions(){
+ const container=document.querySelector("#daily-missions");
+ if(!container)return;
+ try{
+  const data=await api("/api/missions");
+  if(!container.isConnected)return;
+  container.innerHTML=(data.missions||[]).map(m=>{
+   const complete=m.progress>=m.target;
+   const status=m.claimed?"✅ 보상 수령 완료":complete?"🎁 보상을 받을 수 있어요!":`진행도 ${m.progress}/${m.target}`;
+   const percent=Math.min(100,Math.round(m.progress/m.target*100));
+   return `<article style="padding:12px 0;border-top:1px solid #e7f0f6">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+     <div style="min-width:0"><div style="font-weight:850">${esc(m.title)}</div>
+      <div class="muted" style="font-size:13px;margin-top:3px">${esc(m.description)}</div><div style="font-size:13px;margin-top:6px">${status}</div></div>
+     <div style="text-align:right;flex-shrink:0"><div style="font-weight:900;color:#4d8fc3">+${Number(m.reward).toLocaleString()}P</div>
+      ${!m.claimed&&complete?`<button class="primary" style="margin-top:7px;padding:8px 10px" onclick="claimMission('${esc(m.key)}')">받기</button>`:""}</div>
+    </div><div style="height:6px;border-radius:99px;background:#eaf2f7;overflow:hidden;margin-top:9px"><div style="height:100%;width:${percent}%;background:#78b6e3;border-radius:99px"></div></div>
+   </article>`;
+  }).join("")||'<div class="muted">오늘의 미션이 없어요.</div>';
+ }catch(e){if(container.isConnected)container.innerHTML='<div class="muted">미션을 불러오지 못했어요. 잠시 후 새로고침해 주세요.</div>';}
+}
+window.renderDailyMissions=renderDailyMissions;
+window.claimMission=async function(key){
+ if(window.__missionClaimBusy)return;
+ window.__missionClaimBusy=true;
+ try{
+  const data=await api("/api/missions/claim",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key})});
+  if(data.user)S.user=data.user;
+  toast(data.message||"보상을 받았어요!");
+  await home();
+ }catch(e){toast(e.message||"보상을 받지 못했어요.");await renderDailyMissions();}
+ finally{window.__missionClaimBusy=false;}
+};
 function actionCard(
   icon,
   title,
