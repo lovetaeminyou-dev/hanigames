@@ -107,6 +107,83 @@ function bunny(evo){
 }
 
 
+
+/* HANI EVOLUTION + DRESS-UP */
+const HANI_STAGES=[
+ {level:1,name:"아기 토끼",emoji:"🐰",desc:"작고 포근한 첫 만남"},
+ {level:10,name:"귀여운 토끼",emoji:"🐇",desc:"호기심이 가득한 꼬마"},
+ {level:20,name:"통통한 토끼",emoji:"🐰",desc:"포동포동 사랑스러워요"},
+ {level:30,name:"활발한 토끼",emoji:"🐰",desc:"깡총깡총 에너지가 넘쳐요"},
+ {level:40,name:"성장한 토끼",emoji:"🐰",desc:"나만의 리본을 얻었어요"},
+ {level:50,name:"든든한 토끼",emoji:"🐰",desc:"튼튼하고 믿음직해요"},
+ {level:70,name:"반짝이는 토끼",emoji:"🐰",desc:"하트 보석을 품은 토끼"},
+ {level:90,name:"특별한 토끼",emoji:"🐰",desc:"마법의 망토를 두르고"},
+ {level:120,name:"빛나는 토끼",emoji:"🐰",desc:"왕관을 쓴 별빛 수호자"},
+ {level:150,name:"전설의 토끼",emoji:"🐰",desc:"전설의 지팡이를 든 최종 진화"}
+];
+const HANI_ACCESSORIES=[
+ {id:"none",name:"기본",emoji:"🐾",level:1},
+ {id:"bow",name:"하늘 리본",emoji:"🎀",level:3},
+ {id:"heart",name:"하트 쿠션",emoji:"💗",level:5},
+ {id:"crown",name:"작은 왕관",emoji:"👑",level:10},
+ {id:"wand",name:"별빛 지팡이",emoji:"🪄",level:15},
+ {id:"halo",name:"천사 링",emoji:"😇",level:20}
+];
+function haniStage(level){
+ let idx=0;HANI_STAGES.forEach((st,i)=>{if(Number(level||1)>=st.level)idx=i;});
+ return {...HANI_STAGES[idx],stage:idx+1,index:idx,next:HANI_STAGES[idx+1]||null};
+}
+function haniCosmeticKey(){return "haniCosmetics:"+String(S.user?.username||"guest");}
+function haniCosmetics(){
+ try{return JSON.parse(localStorage.getItem(haniCosmeticKey())||'{"owned":["none"],"equipped":"none","background":"sky"}');}
+ catch{return {owned:["none"],equipped:"none",background:"sky"};}
+}
+function saveHaniCosmetics(data){localStorage.setItem(haniCosmeticKey(),JSON.stringify(data));}
+function renderEvolution(){
+ const u=S.user;if(!u)return;const current=haniStage(u.level);const cosmetics=haniCosmetics();
+ $("#app").innerHTML=shell(`
+  <button class="secondary" onclick="go('home')">← 내 하니</button>
+  <section class="card hani-evo-hero">
+   <div class="hani-evo-bunny">${current.emoji}<span>${HANI_ACCESSORIES.find(x=>x.id===cosmetics.equipped)?.emoji||""}</span></div>
+   <div class="eyebrow">HANI EVOLUTION · ${current.stage}/10</div><h2>${current.name}</h2><p>${current.desc}</p>
+   <div class="hani-level-track"><span style="width:${Math.min(100,Math.round(current.index/9*100))}%"></span></div>
+   <small>현재 Lv.${u.level} · 다음 목표 ${current.next?"Lv."+current.next.level+" "+current.next.name:"최종 진화 달성!"}</small>
+  </section>
+  <div class="section-title">🐰 하니 진화 도감</div><p class="section-sub">레벨을 올리면 새로운 모습이 차례대로 열려요.</p>
+  <div class="hani-stage-grid">${HANI_STAGES.map((st,i)=>`<article class="card hani-stage-card ${u.level>=st.level?"unlocked":"locked"}">
+   <div class="hani-stage-pill">${i+1}단계</div><div class="hani-stage-art">${st.emoji}${i>=4?'<span>🎀</span>':""}${i>=6?'<i>✨</i>':""}${i>=8?'<b>👑</b>':""}</div>
+   <strong>Lv.${st.level}</strong><div>${st.name}</div><small>${u.level>=st.level?"✅ 해금 완료":"🔒 Lv."+st.level+"에 해금"}</small>
+  </article>`).join("")}</div>
+  <button class="primary full" style="margin-top:14px" onclick="renderCloset()">👑 토끼 꾸미러 가기</button>`);
+}
+function renderCloset(){
+ const u=S.user;if(!u)return;const data=haniCosmetics();
+ $("#app").innerHTML=shell(`
+  <button class="secondary" onclick="go('home')">← 내 하니</button>
+  <section class="card hani-closet-preview ${data.background}">
+   <div class="hani-closet-bunny">${haniStage(u.level).emoji}<span>${HANI_ACCESSORIES.find(x=>x.id===data.equipped)?.emoji||""}</span></div>
+   <h2>${esc(u.username)}의 하니</h2><p class="muted">레벨을 올리고 아이템을 해금해 나만의 토끼를 꾸며봐요!</p>
+   <div class="hani-bg-choices">
+    <button class="${data.background==="sky"?"selected":""}" onclick="setHaniBackground('sky')">☁️ 구름 하늘</button>
+    <button class="${data.background==="night"?"selected":""}" onclick="setHaniBackground('night')">🌙 별밤</button>
+    <button class="${data.background==="garden"?"selected":""}" onclick="setHaniBackground('garden')">🌷 꽃정원</button>
+   </div>
+  </section>
+  <div class="section-title">🎀 꾸미기 아이템</div><p class="section-sub">아이템을 해금한 뒤 언제든 바꿔 착용할 수 있어요.</p>
+  <div class="hani-item-grid">${HANI_ACCESSORIES.map(item=>{
+   const unlocked=Number(u.level||1)>=item.level,owned=data.owned.includes(item.id)||unlocked,equipped=data.equipped===item.id;
+   return `<article class="card hani-item-card"><div class="hani-item-emoji">${item.emoji}</div><strong>${item.name}</strong><small>${item.level===1?"무료":"Lv."+item.level+" 해금"}</small>
+   <button class="${equipped?"secondary":"primary"}" ${!owned?"disabled":""} onclick="haniItemAction('${item.id}')">${equipped?"착용 중":owned?"착용하기":"🔒 Lv."+item.level}</button></article>`;
+  }).join("")}</div>
+  <p class="muted hani-note">꾸미기 선택은 현재 이 기기의 브라우저에 저장돼요. 계정 간 동기화는 추후 서버 저장으로 연결할 수 있어요.</p>`);
+}
+function haniItemAction(id){
+ const item=HANI_ACCESSORIES.find(x=>x.id===id);if(!item)return;
+ if(Number(S.user?.level||1)<item.level){toast("이 아이템은 Lv."+item.level+"에 해금돼요!");return;}
+ const data=haniCosmetics();if(!data.owned.includes(id))data.owned.push(id);data.equipped=id;saveHaniCosmetics(data);renderCloset();
+}
+function setHaniBackground(bg){const data=haniCosmetics();data.background=bg;saveHaniCosmetics(data);renderCloset();}
+
 /* =========================================================
    관리자 공지
 ========================================================= */
@@ -570,7 +647,7 @@ async function home(){
             </div>
 
             <p class="muted">
-              생활 상태가 안정적입니다.
+              게임하고 레벨을 올려서 새로운 하니를 만나봐요!
             </p>
 
           </div>
@@ -594,17 +671,13 @@ async function home(){
           </div>
 
           <div class="stat">
-            <small>체력</small>
-            <strong>
-              ${u.energy}%
-            </strong>
+            <small>진화 단계</small>
+            <strong>${haniStage(u.level).stage}/10</strong>
           </div>
 
           <div class="stat">
-            <small>포만감</small>
-            <strong>
-              ${u.fullness}%
-            </strong>
+            <small>전적</small>
+            <strong>${u.wins}승 ${u.losses}패</strong>
           </div>
 
         </div>
@@ -637,37 +710,15 @@ async function home(){
       </section>
 
 
-      <div class="section-title">
-        오늘의 생활 행동
+      <div class="hani-home-actions">
+        <button class="primary" onclick="renderEvolution()">🐰 진화 도감 보기</button>
+        <button class="secondary" onclick="renderCloset()">👑 토끼 꾸미기</button>
       </div>
-
-
-      <div class="action-grid">
-
-        ${actionCard(
-          "💼",
-          "일하기",
-          "+500P · 체력 -5 · 포만감 -4",
-          "work"
-        )}
-
-        ${actionCard(
-          "🍳",
-          "밥 주기",
-          "하니 포만감 +20 · 체력 -3",
-          "feed"
-        )}
-
-        ${actionCard(
-          "🛋️",
-          "쉬기",
-          "체력 +30 · 포만감 -2",
-          "rest"
-        )}
-
-      </div>
-
-
+      <section class="card hani-growth-promo">
+        <div class="hani-promo-emoji">✨🐰✨</div>
+        <div><strong>오늘도 하니와 함께 성장!</strong><p class="muted">게임을 플레이하고 경험치와 포인트를 모아보세요. 밥 주기 같은 숙제는 없어도 괜찮아요.</p></div>
+        <button class="primary" onclick="go('games')">게임하러 가기</button>
+      </section>
       <div class="section-title">
         오늘의 하니력
       </div>
