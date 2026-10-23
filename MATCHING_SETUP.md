@@ -12,7 +12,7 @@ npx wrangler secret put HANI_TOKEN_SECRET
 ```
 
 - `BBW_MATCH_CODE`: BBW 시무방 회원에게 별도로 전달할 입장코드입니다. 저장소에 적거나 공개 채팅에 올리지 마세요.
-- `HANI_TOKEN_SECRET`: API 로그인 토큰 서명용 비밀값입니다. 입장코드와 다른, 충분히 길고 무작위인 값을 사용하세요. 누구에게도 공유하지 마세요.
+- `HANI_TOKEN_SECRET`: API 로그인 토큰 서명용 비밀값입니다. 충분히 길고 무작위인 값을 사용하세요. 누구에게도 공유하지 마세요.
 
 두 Secret을 설정한 뒤 새 버전을 배포하세요.
 
