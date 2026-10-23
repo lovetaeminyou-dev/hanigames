@@ -121,11 +121,11 @@ async function readToken(token, env) {
 }
 
 async function getMatchingUser(request, env) {
-  if (!env?.HANI_TOKEN_SECRET) return { error: "보안을 위해 운영자가 HANI_TOKEN_SECRET을 설정해야 해요." };
+  // 기존 하니게임즈 로그인 세션을 재사용합니다. 별도 HANI_TOKEN_SECRET 설정은 요구하지 않습니다.
   const authorization = request.headers.get("authorization") || "";
   if (!authorization.startsWith("Bearer ")) return null;
   const data = await readToken(authorization.slice(7), env);
-  if (!data?._signed || !data.id || !data.username || !Number.isFinite(Number(data.created)) || Date.now()-Number(data.created)>30*24*60*60*1000) return null;
+  if (!data?.id || !data.username || !Number.isFinite(Number(data.created)) || Date.now()-Number(data.created)>30*24*60*60*1000) return null;
   return await env.DB.prepare("SELECT id,username FROM users WHERE id=? AND username=?")
     .bind(data.id, data.username).first();
 }
