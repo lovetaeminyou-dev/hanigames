@@ -1966,7 +1966,7 @@ export class GameRoom {
 ========================= */
 async function ensureMatchingTables(env) {
   const statements = [
-    "CREATE TABLE IF NOT EXISTS matching_profiles (user_id INTEGER PRIMARY KEY, gender TEXT NOT NULL CHECK(gender IN ('male','female')), active INTEGER NOT NULL DEFAULT 0, verified_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS matching_profiles (user_id INTEGER PRIMARY KEY, gender TEXT NOT NULL CHECK(gender IN ('male','female')), group_nickname TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 0, verified_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
     "CREATE TABLE IF NOT EXISTS matching_code_attempts (user_id INTEGER PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, window_start TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
     "CREATE TABLE IF NOT EXISTS matching_hearts (from_user INTEGER NOT NULL, to_user INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(from_user,to_user))",
     "CREATE TABLE IF NOT EXISTS matching_matches (id INTEGER PRIMARY KEY AUTOINCREMENT, user_a INTEGER NOT NULL, user_b INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','ended')), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, ended_at TEXT, UNIQUE(user_a,user_b))",
@@ -1975,29 +1975,31 @@ async function ensureMatchingTables(env) {
     "CREATE TABLE IF NOT EXISTS matching_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, reporter_id INTEGER NOT NULL, target_id INTEGER NOT NULL, match_id INTEGER, reason TEXT NOT NULL, details TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
   ];
   for (const sql of statements) await env.DB.prepare(sql).run();
+  try { await env.DB.prepare("ALTER TABLE matching_profiles ADD COLUMN group_nickname TEXT NOT NULL DEFAULT ''").run(); } catch {}
+  await env.DB.prepare("CREATE UNIQUE INDEX IF NOT EXISTS matching_nickname_unique ON matching_profiles(group_nickname COLLATE NOCASE) WHERE group_nickname<>''").run();
 }
 async function matchingBlocked(env, a, b) {
   return !!(await env.DB.prepare("SELECT 1 FROM matching_blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?) LIMIT 1").bind(a,b,b,a).first());
 }
 async function matchingState(env, user) {
-  const profile = await env.DB.prepare("SELECT user_id,gender,active,verified_at,created_at FROM matching_profiles WHERE user_id=?").bind(user.id).first();
+  const profile = await env.DB.prepare("SELECT user_id,gender,group_nickname,active,verified_at,created_at FROM matching_profiles WHERE user_id=?").bind(user.id).first();
   if (!profile) return json({profile:null,people:[],matches:[]});
   const opposite = profile.gender === "male" ? "female" : "male";
   const peopleResult = profile.active ? await env.DB.prepare(
-    "SELECT p.user_id AS id,p.gender,u.username,p.active FROM matching_profiles p JOIN users u ON u.id=p.user_id WHERE p.active=1 AND p.gender=? AND p.user_id<>? AND NOT EXISTS (SELECT 1 FROM matching_blocks b WHERE (b.blocker_id=? AND b.blocked_id=p.user_id) OR (b.blocker_id=p.user_id AND b.blocked_id=?)) AND NOT EXISTS (SELECT 1 FROM matching_matches m WHERE m.user_a=MIN(?,p.user_id) AND m.user_b=MAX(?,p.user_id)) ORDER BY p.created_at DESC LIMIT 100"
+    "SELECT p.user_id AS id,p.gender,p.group_nickname AS username,p.active FROM matching_profiles p JOIN users u ON u.id=p.user_id WHERE p.active=1 AND p.gender=? AND p.user_id<>? AND NOT EXISTS (SELECT 1 FROM matching_blocks b WHERE (b.blocker_id=? AND b.blocked_id=p.user_id) OR (b.blocker_id=p.user_id AND b.blocked_id=?)) AND NOT EXISTS (SELECT 1 FROM matching_matches m WHERE m.user_a=MIN(?,p.user_id) AND m.user_b=MAX(?,p.user_id)) ORDER BY p.created_at DESC LIMIT 100"
   ).bind(opposite,user.id,user.id,user.id,user.id,user.id).all() : {results:[]};
   const likedResult = await env.DB.prepare("SELECT to_user FROM matching_hearts WHERE from_user=?").bind(user.id).all();
   const liked = new Set((likedResult.results||[]).map(r=>Number(r.to_user)));
   const people = (peopleResult.results||[]).map(p=>({id:Number(p.id),nickname:p.username,gender:p.gender,liked:liked.has(Number(p.id))}));
   const matchesResult = await env.DB.prepare(
-    "SELECT m.id,m.status,m.created_at,m.ended_at,CASE WHEN m.user_a=? THEN m.user_b ELSE m.user_a END AS partner_id,u.username AS nickname,p.gender FROM matching_matches m JOIN users u ON u.id=CASE WHEN m.user_a=? THEN m.user_b ELSE m.user_a END LEFT JOIN matching_profiles p ON p.user_id=u.id WHERE (m.user_a=? OR m.user_b=?) ORDER BY CASE WHEN m.status='active' THEN 0 ELSE 1 END,m.id DESC LIMIT 100"
+    "SELECT m.id,m.status,m.created_at,m.ended_at,CASE WHEN m.user_a=? THEN m.user_b ELSE m.user_a END AS partner_id,COALESCE(p.group_nickname,u.username) AS nickname,p.gender FROM matching_matches m JOIN users u ON u.id=CASE WHEN m.user_a=? THEN m.user_b ELSE m.user_a END LEFT JOIN matching_profiles p ON p.user_id=u.id WHERE (m.user_a=? OR m.user_b=?) ORDER BY CASE WHEN m.status='active' THEN 0 ELSE 1 END,m.id DESC LIMIT 100"
   ).bind(user.id,user.id,user.id,user.id).all();
   const matches = [];
   for (const m of (matchesResult.results||[])) {
     if (await matchingBlocked(env,user.id,Number(m.partner_id))) continue;
     matches.push({id:Number(m.id),status:m.status,created_at:m.created_at,ended_at:m.ended_at,partnerId:Number(m.partner_id),nickname:m.nickname,gender:m.gender,canChat:m.status==="active"});
   }
-  return json({profile:{gender:profile.gender,active:Number(profile.active)===1,verifiedAt:profile.verified_at},people,matches});
+  return json({profile:{gender:profile.gender,nickname:profile.group_nickname,active:Number(profile.active)===1,verifiedAt:profile.verified_at},people,matches});
 }
 async function matchingApi(request, env, user, url) {
   await ensureMatchingTables(env);
@@ -2007,8 +2009,10 @@ async function matchingApi(request, env, user, url) {
     const body = await readJson(request);
     const code = String(body.code||"").trim();
     const gender = String(body.gender||"");
+    const nickname = String(body.nickname||"").trim();
     if (!env.BBW_MATCH_CODE) return json({error:"운영자가 BBW_MATCH_CODE 입장코드를 설정해야 해요."},503);
     if (gender!=="male" && gender!=="female") return json({error:"성별을 선택해 주세요."},400);
+    if (nickname.length<2 || nickname.length>20) return json({error:"시무방에서 사용하는 닉네임을 2~20자로 입력해 주세요."},400);
     const attempt = await env.DB.prepare("SELECT attempts,window_start FROM matching_code_attempts WHERE user_id=?").bind(user.id).first();
     const windowStart = attempt?.window_start ? Date.parse(String(attempt.window_start).replace(" ","T")+"Z") : 0;
     const now = Date.now();
@@ -2019,9 +2023,12 @@ async function matchingApi(request, env, user, url) {
       else await env.DB.prepare("INSERT INTO matching_code_attempts(user_id,attempts,window_start) VALUES(?,1,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET attempts=1,window_start=CURRENT_TIMESTAMP").bind(user.id).run();
       return json({error:"입장코드가 맞지 않아요. 시무방 입장코드를 확인해 주세요."},403);
     }
-    await env.DB.prepare("INSERT INTO matching_profiles(user_id,gender,active) VALUES(?,?,0) ON CONFLICT(user_id) DO NOTHING").bind(user.id,gender).run();
-    const profile = await env.DB.prepare("SELECT gender FROM matching_profiles WHERE user_id=?").bind(user.id).first();
+    const duplicate = await env.DB.prepare("SELECT user_id FROM matching_profiles WHERE group_nickname=? COLLATE NOCASE AND user_id<>?").bind(nickname,user.id).first();
+    if (duplicate) return json({error:"이미 매칭에 등록된 닉네임이에요. 시무방 닉네임을 확인해 주세요."},409);
+    await env.DB.prepare("INSERT INTO matching_profiles(user_id,gender,group_nickname,active) VALUES(?,?,?,0) ON CONFLICT(user_id) DO NOTHING").bind(user.id,gender,nickname).run();
+    const profile = await env.DB.prepare("SELECT gender,group_nickname FROM matching_profiles WHERE user_id=?").bind(user.id).first();
     if (profile.gender !== gender) return json({error:"등록된 성별은 변경할 수 없어요. 운영자에게 문의해 주세요."},409);
+    if (profile.group_nickname !== nickname) return json({error:"등록된 닉네임은 변경할 수 없어요. 운영자에게 문의해 주세요."},409);
     await env.DB.prepare("DELETE FROM matching_code_attempts WHERE user_id=?").bind(user.id).run();
     return matchingState(env,user);
   }
