@@ -13,7 +13,7 @@ function matchingRender(data) {
   const profile = data.profile;
   let body = '<div class="section-title">💗 하니 매칭</div><div class="section-sub">서로 하트를 보내면 둘만의 채팅이 열려요. 하트는 서로 마음이 통하기 전까지 비공개예요.</div>';
   if (!profile) {
-    body += '<section class="card match-panel"><div class="match-hero">💌</div><h2>BBW 시무방 회원 전용</h2><p class="muted">시무방 입장코드로 인증하고, 기존 하니게임즈 닉네임으로 참여해요. 사진이나 자기소개는 필요 없어요.</p><div class="field"><label for="match-code">시무방 입장코드</label><input id="match-code" type="password" autocomplete="off" placeholder="입장코드 입력"></div><div class="field"><label for="match-nickname">시무방에서 사용하는 닉네임</label><input id="match-nickname" maxlength="20" autocomplete="off" placeholder="새 닉네임이 아닌 기존 단톡 닉네임"></div><div class="field"><label for="match-gender">내 성별</label><select id="match-gender"><option value="">선택해 주세요</option><option value="female">여자</option><option value="male">남자</option></select></div><button class="primary full" onclick="window.matchingSetup()">인증하고 시작하기 💗</button><p class="match-note">매칭 프로필은 매칭 기능 안에서만 사용돼요. 입장코드가 실제 단톡방 가입 여부를 자동 확인해 주는 것은 아니에요.</p></section>';
+    body += '<section class="card match-panel"><div class="match-hero">💌</div><h2>BBW 시무방 회원 전용</h2><p class="muted">시무방 입장코드로 인증하고, 단톡방에서 실제 사용하는 기존 닉네임을 입력해요. 사진이나 자기소개는 필요 없어요.</p><div class="field"><label for="match-code">시무방 입장코드</label><input id="match-code" type="password" autocomplete="off" placeholder="입장코드 입력"></div><div class="field"><label for="match-nickname">시무방에서 사용하는 닉네임</label><input id="match-nickname" maxlength="20" autocomplete="off" placeholder="새 닉네임이 아닌 기존 단톡 닉네임"></div><div class="field"><label for="match-gender">내 성별</label><select id="match-gender"><option value="">선택해 주세요</option><option value="female">여자</option><option value="male">남자</option></select></div><button class="primary full" onclick="window.matchingSetup()">인증하고 시작하기 💗</button><p class="match-note">매칭 프로필은 매칭 기능 안에서만 사용돼요. 입장코드가 실제 단톡방 가입 여부를 자동 확인해 주는 것은 아니에요.</p></section>';
     $("#app").innerHTML = shell(body);
     return;
   }
@@ -63,7 +63,7 @@ window.matchingChat = async function (matchId) {
     const current = window.__matchingState?.matches?.find(m => Number(m.id) === Number(matchId));
     const title = current?.nickname || "매칭 채팅";
     const messages = data.messages || [];
-    let body = '<div class="match-chat-head"><button class="secondary" onclick="window.openMatching()">← 매칭 목록</button><div><b>💗 ' + esc(title) + '</b><small>' + (data.readOnly ? "매칭 해제 · 읽기 전용" : "둘만의 비공개 대화") + '</small></div></div><section class="card match-chat">';
+    let body = '<div class="match-chat-head"><button class="secondary" onclick="window.openMatching()">← 매칭 목록</button><div><b>💗 ' + esc(title) + '</b><small>' + (data.readOnly ? "매칭 해제 · 읽기 전용" : "둘만의 비공개 대화") + '</small></div><button class="secondary" onclick="window.matchingChat(' + matchId + ')">새로고침</button></div><section class="card match-chat">';
     body += messages.length ? messages.map(m => '<div class="match-message ' + (m.mine ? "mine" : "theirs") + '"><div>' + esc(m.body) + '</div><small>' + esc(m.created_at || "") + '</small></div>').join("") : '<p class="muted center">첫 메시지를 보내 보세요 💌</p>';
     body += '</section>';
     if (!data.readOnly) body += '<form class="match-compose" onsubmit="window.matchingSend(event,' + matchId + ')"><input id="match-message" maxlength="1000" placeholder="메시지를 입력해 주세요" autocomplete="off"><button class="primary" type="submit">전송</button></form>';
