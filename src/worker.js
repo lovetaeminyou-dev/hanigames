@@ -125,7 +125,7 @@ async function getMatchingUser(request, env) {
   const authorization = request.headers.get("authorization") || "";
   if (!authorization.startsWith("Bearer ")) return null;
   const data = await readToken(authorization.slice(7), env);
-  if (!data?._signed || !data.id || !data.username) return null;
+  if (!data?._signed || !data.id || !data.username || !Number.isFinite(Number(data.created)) || Date.now()-Number(data.created)>30*24*60*60*1000) return null;
   return await env.DB.prepare("SELECT id,username FROM users WHERE id=? AND username=?")
     .bind(data.id, data.username).first();
 }
