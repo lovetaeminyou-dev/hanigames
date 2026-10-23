@@ -33,7 +33,6 @@ function matchingRender(data) {
 }
 window.matchingSetup = async function () {
   try {
-    const code = document.querySelector("#match-code")?.value || "";
     const gender = document.querySelector("#match-gender")?.value || "";
     const nickname = document.querySelector("#match-nickname")?.value?.trim() || "";
     const data = await api("/api/matching/setup", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({gender,nickname})});
