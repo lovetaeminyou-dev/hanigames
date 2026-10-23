@@ -33,3 +33,15 @@ CREATE TABLE IF NOT EXISTS attendance (
 
 CREATE INDEX IF NOT EXISTS idx_attendance_user_date
 ON attendance(user_id, attendance_date);
+
+
+CREATE TABLE IF NOT EXISTS pokes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_user_id INTEGER NOT NULL,
+  to_user_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(from_user_id) REFERENCES users(id),
+  FOREIGN KEY(to_user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_pokes_to_user_id_id ON pokes(to_user_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_pokes_from_to_created ON pokes(from_user_id, to_user_id, created_at);
