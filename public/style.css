@@ -441,3 +441,167 @@ button:active{transform:scale(.975)}
 .match-admin-member-main small{font-size:10px;color:#929bb0;overflow-wrap:anywhere}
 .match-admin-loading{padding:22px;text-align:center;color:#929bb0}
 @media(max-width:520px){.match-admin-report,.match-admin-member{padding:12px}.match-admin-report-top{align-items:flex-start;flex-direction:column}.match-admin-actions button{flex:1}.match-admin-meta{font-size:10px}}
+
+
+/* =========================================================
+   HANI GAMES · CELESTIAL ARCADE DESIGN SYSTEM
+   Distinctive Korean display typography + polished game UI
+========================================================= */
+:root{
+  --bg:#f4f7ff;
+  --card:rgba(255,255,255,.94);
+  --text:#202744;
+  --muted:#7d86a3;
+  --blue:#5b72f2;
+  --blue2:#8c9bff;
+  --sky:#edf3ff;
+  --line:#e3e8fb;
+  --shadow:0 16px 42px rgba(61,76,150,.10);
+}
+html,body{
+  font-family:"Gowun Dodum","Apple SD Gothic Neo",sans-serif;
+  letter-spacing:-.025em;
+}
+button,input,select{font-family:inherit}
+.brand,.section-title,.name,.login h1,.game-card h3,.action strong,
+.primary,.notice button,.sheet-head{
+  font-family:"Black Han Sans","Gowun Dodum",sans-serif;
+  font-weight:400;
+  letter-spacing:-.025em;
+}
+.brand{font-size:25px;letter-spacing:-.045em}
+.logo{
+  border-radius:15px;
+  background:linear-gradient(145deg,#69d8ff 0%,#7485ff 52%,#b18aff 100%);
+  box-shadow:0 8px 20px #7187f044,inset 0 1px 0 #ffffffaa;
+  position:relative;
+}
+.logo:after{
+  content:"✦";position:absolute;right:-4px;top:-7px;font-size:13px;
+  color:#9a82ff;text-shadow:0 2px 8px #b4a3ff80;
+}
+.topbar{
+  background:rgba(250,252,255,.88);
+  border-bottom:1px solid #e4e9fb;
+  box-shadow:0 6px 24px rgba(48,62,120,.045);
+}
+.notice{
+  background:linear-gradient(110deg,#e8f6ff,#f1edff 68%,#fff2fa);
+  border:1px solid #dce7ff;
+  box-shadow:0 9px 22px #7288d410;
+  color:#43517d;
+}
+.notice button{
+  color:#fff;
+  background:linear-gradient(120deg,#6488f6,#9a7df5);
+  box-shadow:0 6px 15px #7b86e63b;
+}
+.section-title{
+  font-size:23px;
+  color:#29365f;
+  gap:9px;
+}
+.section-title:before{
+  content:"";display:inline-block;width:5px;height:21px;border-radius:9px;
+  background:linear-gradient(#65d5f8,#8e83ff);
+  box-shadow:0 3px 9px #8c8bff42;
+}
+.card{
+  border-color:rgba(221,228,250,.96);
+  box-shadow:0 13px 34px rgba(63,77,145,.075);
+}
+.hero{
+  background:linear-gradient(135deg,#fff 0%,#f8faff 62%,#f1f0ff 100%);
+}
+.bunny-box{
+  background:
+    radial-gradient(circle at 78% 20%,#fff9 0 8%,transparent 9%),
+    linear-gradient(145deg,#dff7ff,#e9eaff 62%,#f8eaff);
+  border:1px solid #dce8ff;
+  box-shadow:inset 0 1px 0 #fff,0 8px 20px #8296d015;
+}
+.eyebrow{
+  color:#6c78d8;
+  font-size:12px;
+  letter-spacing:.06em;
+}
+.name{color:#29345d;font-size:31px}
+.tag{
+  background:linear-gradient(135deg,#f0f5ff,#f6f0ff);
+  border:1px solid #e7e9fb;
+  color:#59658f;
+}
+.stat{
+  background:linear-gradient(145deg,#f6f9ff,#f0f4ff);
+  border:1px solid #e8edff;
+}
+.stat strong{color:#465ee1;letter-spacing:-.04em}
+.progress{background:#e7eaff}
+.progress>i{background:linear-gradient(90deg,#5dd4f4,#7188ff 58%,#b08aff)}
+.action{
+  border:1px solid #e7eafb;
+  background:linear-gradient(145deg,#fff,#f8faff);
+  box-shadow:0 8px 18px #5d6fa90b;
+}
+.action .emoji,.game-icon{
+  background:linear-gradient(145deg,#e3f7ff,#eceaff);
+  border:1px solid #e0e8ff;
+  box-shadow:inset 0 1px 0 #fff;
+}
+.game-card{
+  position:relative;
+  background:linear-gradient(155deg,#fff 0%,#fbfcff 68%,#f2f2ff 100%);
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
+}
+.game-card:after{
+  content:"↗";position:absolute;right:14px;top:14px;width:27px;height:27px;
+  display:grid;place-items:center;border-radius:10px;background:#edf1ff;
+  color:#7885de;font:700 15px "Gowun Dodum",sans-serif;
+}
+.game-card:active{transform:translateY(1px) scale(.99)}
+.game-card h3{color:#303b67;font-size:21px}
+.game-card p{line-height:1.7}
+.primary{
+  background:linear-gradient(115deg,#5e8cf5,#7878f5 65%,#9a7af1);
+  box-shadow:0 9px 20px #7883ee38,inset 0 1px 0 #ffffff55;
+}
+.secondary{
+  background:linear-gradient(120deg,#edf7ff,#f0efff);
+  color:#5868b4;border:1px solid #e1e7ff;
+}
+.pill{color:#64709d;border-color:#e4e8fb}
+.bottom-nav{
+  border-color:#e0e6fb;
+  box-shadow:0 14px 38px rgba(54,67,129,.16);
+}
+.navbtn.active{color:#5e70ed}
+.navbtn.active:before{
+  background:linear-gradient(135deg,#e4f8ff,#eae8ff);
+}
+.login{
+  background:
+    radial-gradient(ellipse at 12% 8%,#d9f5ff 0,transparent 34%),
+    radial-gradient(ellipse at 90% 18%,#e6e1ff 0,transparent 32%),
+    radial-gradient(ellipse at 70% 95%,#ffeafa 0,transparent 30%),#f8f9ff;
+}
+.login-card{
+  border-color:#e2e8ff;
+  background:rgba(255,255,255,.91);
+  box-shadow:0 28px 80px rgba(76,83,153,.15);
+}
+.login-bunny{font-size:94px}
+.login h1{font-size:38px;color:#303b68}
+.field label{color:#3f4c78}
+.field input:focus,.field select:focus{
+  border-color:#8798ff;box-shadow:0 0 0 4px #8798ff20;
+}
+.room,.rank-card,.match-person,.match-toggle{
+  box-shadow:0 8px 22px #566ca50b;
+}
+@media(max-width:560px){
+  .brand{font-size:21px}
+  .section-title{font-size:21px}
+  .name{font-size:25px}
+  .game-card h3{font-size:17px}
+  .login h1{font-size:34px}
+}
