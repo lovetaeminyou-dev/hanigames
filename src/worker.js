@@ -1448,6 +1448,53 @@ async function requireAdmin(
   };
 }
 
+
+/* =========================
+   HANI MATCHING ADMIN
+========================= */
+async function adminMatchingReports(request, env) {
+  const check = await requireAdmin(request, env);
+  if (check.error) return check.error;
+  await ensureMatchingTables(env);
+  const rows = await env.DB.prepare(
+    "SELECT r.id,r.reporter_id,r.target_id,r.match_id,r.reason,r.details,r.status,r.created_at, reporter.group_nickname AS reporter_nickname, target.group_nickname AS target_nickname FROM matching_reports r LEFT JOIN matching_profiles reporter ON reporter.user_id=r.reporter_id LEFT JOIN matching_profiles target ON target.user_id=r.target_id ORDER BY CASE WHEN r.status='pending' THEN 0 ELSE 1 END, r.id DESC LIMIT 300"
+  ).all();
+  return json({reports: rows.results || []});
+}
+async function adminMatchingReportUpdate(request, env, id) {
+  const check = await requireAdmin(request, env);
+  if (check.error) return check.error;
+  await ensureMatchingTables(env);
+  const body = await readJson(request);
+  const status = String(body.status || "");
+  if (!["pending","reviewed","actioned","dismissed"].includes(status)) return json({error:"처리 상태를 확인해 주세요."},400);
+  const report = await env.DB.prepare("SELECT id,target_id FROM matching_reports WHERE id=?").bind(id).first();
+  if (!report) return json({error:"신고를 찾을 수 없어요."},404);
+  await env.DB.prepare("UPDATE matching_reports SET status=? WHERE id=?").bind(status,id).run();
+  if (body.disableMatching === true) await env.DB.prepare("UPDATE matching_profiles SET active=0 WHERE user_id=?").bind(report.target_id).run();
+  return json({ok:true,message:body.disableMatching===true?"신고 상태를 저장하고 해당 회원의 매칭 참여를 중지했어요.":"신고 처리 상태를 저장했어요."});
+}
+async function adminMatchingMembers(request, env) {
+  const check = await requireAdmin(request, env);
+  if (check.error) return check.error;
+  await ensureMatchingTables(env);
+  const rows = await env.DB.prepare(
+    "SELECT p.user_id,p.group_nickname,p.gender,p.active,p.verified_at,p.created_at,(SELECT COUNT(*) FROM matching_reports r WHERE r.target_id=p.user_id AND r.status='pending') AS pending_reports FROM matching_profiles p ORDER BY p.created_at DESC LIMIT 500"
+  ).all();
+  return json({members:rows.results||[]});
+}
+async function adminMatchingMemberUpdate(request, env, id) {
+  const check = await requireAdmin(request, env);
+  if (check.error) return check.error;
+  await ensureMatchingTables(env);
+  const body = await readJson(request);
+  if (typeof body.active !== "boolean") return json({error:"참여 상태를 확인해 주세요."},400);
+  const result = await env.DB.prepare("UPDATE matching_profiles SET active=? WHERE user_id=?").bind(body.active?1:0,id).run();
+  if (!result.meta?.changes) return json({error:"매칭 회원을 찾을 수 없어요."},404);
+  return json({ok:true,message:body.active?"매칭 참여를 다시 허용했어요.":"매칭 참여를 중지했어요."});
+}
+
+
 /* =========================
    ADMIN NOTICE LIST
 ========================= */
@@ -2136,6 +2183,16 @@ export default {
         }
       });
     }
+
+    /* =========================
+       HANI MATCHING ADMIN API
+    ========================= */
+    if (url.pathname === "/api/admin/matching/reports" && request.method === "GET") return adminMatchingReports(request, env);
+    const adminReportMatch = url.pathname.match(/^\/api\/admin\/matching\/reports\/(\d+)$/);
+    if (adminReportMatch && request.method === "POST") return adminMatchingReportUpdate(request, env, adminReportMatch[1]);
+    if (url.pathname === "/api/admin/matching/members" && request.method === "GET") return adminMatchingMembers(request, env);
+    const adminMemberMatch = url.pathname.match(/^\/api\/admin\/matching\/members\/(\d+)$/);
+    if (adminMemberMatch && request.method === "POST") return adminMatchingMemberUpdate(request, env, adminMemberMatch[1]);
 
     /* =========================
        HANI MATCHING API
