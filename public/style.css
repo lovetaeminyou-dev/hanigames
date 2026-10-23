@@ -689,3 +689,8 @@ button,input,select{font-family:inherit}
 .hani-closet-preview:has(.selected) {background:linear-gradient(150deg,#e5f7ff,#f2efff 55%,#fff2f7)}
 .hani-note{font-size:12px;margin:14px 0 30px}
 @media(max-width:700px){.hani-stage-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.hani-stage-art{height:68px}.hani-item-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hani-growth-promo{align-items:flex-start}.hani-growth-promo button{width:100%}}
+
+.hani-closet-preview.sky{background:linear-gradient(150deg,#e5f7ff,#f2efff 55%,#fff2f7)}
+.hani-closet-preview.night{background:radial-gradient(circle at 20% 15%,#b6caff 0 2px,transparent 3px),radial-gradient(circle at 80% 35%,#fff 0 2px,transparent 3px),linear-gradient(145deg,#263b70,#6869a8 55%,#c4a9e8);color:#fff}
+.hani-closet-preview.night h2,.hani-closet-preview.night p{color:#fff}
+.hani-closet-preview.garden{background:radial-gradient(circle at 15% 20%,#ffc9e1 0 5px,transparent 6px),radial-gradient(circle at 85% 28%,#ffe7a8 0 5px,transparent 6px),linear-gradient(145deg,#e2ffef,#f5f4ff 55%,#ffe7f1)}
