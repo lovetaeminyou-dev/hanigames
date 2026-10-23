@@ -644,9 +644,9 @@ async function home(){
 
         ${actionCard(
           "🍳",
-          "요리하기",
-          "포만감 +20 · 체력 -3",
-          "cook"
+          "밥 주기",
+          "하니 포만감 +20 · 체력 -3",
+          "feed"
         )}
 
         ${actionCard(
@@ -714,6 +714,19 @@ async function home(){
       </div>
 
 
+      <div class="section-title">👉 콕 찌르기</div>
+      <section class="card" style="padding:14px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div class="muted" style="font-size:13px">접속 중인 사람에게 인사해 봐요!</div>
+          <button class="pill" onclick="renderPokePanel()">새로고침</button>
+        </div>
+        <div id="poke-panel" style="margin-top:10px"><div class="muted">사용자 목록을 불러오는 중…</div></div>
+      </section>
+      <div class="section-title">🏆 실시간 랭킹 TOP 3</div>
+      <section class="card" style="padding:14px;margin-bottom:18px">
+        <div id="home-ranking"><div class="muted">순위를 불러오는 중…</div></div>
+        <button class="secondary full" style="margin-top:10px" onclick="go('ranks')">전체 랭킹 보기 →</button>
+      </section>
       <div class="section-title">
         최근 소식
       </div>
@@ -731,6 +744,8 @@ async function home(){
 
     `);
   renderDailyMissions();
+  renderPokePanel();
+  renderHomeRanking();
 }
 async function renderDailyMissions(){
  const container=document.querySelector("#daily-missions");
@@ -765,6 +780,45 @@ window.claimMission=async function(key){
  }catch(e){toast(e.message||"보상을 받지 못했어요.");await renderDailyMissions();}
  finally{window.__missionClaimBusy=false;}
 };
+
+let pokeRefreshTimer=null;
+async function renderPokePanel(){
+  const container=document.querySelector("#poke-panel");
+  if(!container)return;
+  try{
+    const data=await api("/api/pokes");
+    if(!container.isConnected)return;
+    const received=(data.received||[]);
+    const users=(data.users||[]);
+    container.innerHTML=
+      '<div style="font-weight:850;margin-bottom:8px">💌 나에게 온 콕 찌르기 ('+received.length+')</div>'+
+      (received.length?received.slice(0,3).map(p=>'<div class="rank-item"><span>👉</span><span class="rank-name">'+esc(p.from_username)+'</span><span class="rank-value">'+esc(String(p.created_at||""))+'</span></div>').join(""):'<div class="muted" style="font-size:13px;margin-bottom:10px">아직 받은 콕 찌르기가 없어요.</div>')+
+      '<div style="font-weight:850;margin:12px 0 6px">👥 하니 친구들</div>'+
+      (users.length?users.map(u=>'<div class="rank-item" style="align-items:center"><span>'+(Number(u.online)===1?'🟢':'⚪')+'</span><span class="rank-name">'+esc(u.username)+'</span><span class="rank-value">'+(Number(u.online)===1?'접속 중':'')+'</span><button class="secondary" style="padding:7px 10px;font-size:12px" onclick="sendPoke('+Number(u.id)+')">콕 찌르기</button></div>').join(""):'<div class="muted" style="font-size:13px">아직 다른 사용자가 없어요.</div>');
+    if(!pokeRefreshTimer)pokeRefreshTimer=setInterval(()=>{if(document.querySelector("#poke-panel"))renderPokePanel();else{clearInterval(pokeRefreshTimer);pokeRefreshTimer=null;}},20000);
+  }catch(e){if(container.isConnected)container.innerHTML='<div class="muted">콕 찌르기를 불러오지 못했어요.</div>';}
+}
+window.renderPokePanel=renderPokePanel;
+window.sendPoke=async function(targetId){
+  if(window.__pokeBusy)return;
+  window.__pokeBusy=true;
+  try{
+    const data=await api("/api/pokes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({targetId})});
+    toast(data.message||"콕 찌르기를 보냈어요!");
+    await renderPokePanel();
+  }catch(e){toast(e.message||"콕 찌르기를 보내지 못했어요.");}
+  finally{window.__pokeBusy=false;}
+};
+async function renderHomeRanking(){
+  const container=document.querySelector("#home-ranking");
+  if(!container)return;
+  try{
+    const data=await api("/api/ranking");
+    if(!container.isConnected)return;
+    const top=(data.rankings?.points||[]).slice(0,3);
+    container.innerHTML=top.length?top.map((u,i)=>'<div class="rank-item" style="align-items:center"><span class="rank-no">'+(i+1)+'</span><span class="rank-name">'+esc(u.username)+'</span><span class="rank-value">'+Number(u.points||0).toLocaleString()+'P</span></div>').join(""):'<div class="muted">아직 랭킹 데이터가 없어요.</div>';
+  }catch(e){if(container.isConnected)container.innerHTML='<div class="muted">순위를 불러오지 못했어요.</div>';}
+}
 function actionCard(
   icon,
   title,
@@ -1543,7 +1597,11 @@ function mafia(){
   const options=(filter)=>alive().filter(filter);
   function render(){
     const result=winner();
-    if(result){over=true;phase="end";say(result==="town"?"🎉 시민 팀 승리! 마피아를 모두 찾았어요.":"🕶️ 마피아 팀 승리! 시민들이 수적으로 밀렸어요.");}
+    if(!me.alive && phase!=="end"){
+      over=true;phase="end";say("💀 당신은 탈락했어요. 이번 판은 여기서 종료돼요.");
+    }else if(result && phase!=="end"){
+      over=true;phase="end";say(result==="town"?"🎉 시민 팀 승리! 마피아를 모두 찾았어요.":"🕶️ 마피아 팀 승리! 시민들이 수적으로 밀렸어요.");
+    }
     const targetOptions=options(p=>p.id!==0);
     const choices=targetOptions.map(p=>'<button class="'+(selected===p.id?"primary":"secondary")+'" onclick="window.mafiaSelect('+p.id+')" style="padding:10px;min-width:90px">'+(p.alive?"🟢 ":"⚫ ")+escapeName(p)+'</button>').join("");
     const playerCards=players.map(p=>'<div class="card" style="padding:10px;text-align:center;opacity:'+(p.alive?1:.55)+'"><div style="font-size:24px">'+(p.alive?"🙂":"💀")+'</div><b>'+escapeName(p)+'</b><div class="section-sub">'+(p.id===0?roleName(p.role):(p.alive?"생존":"탈락"))+'</div></div>').join("");
@@ -1555,7 +1613,10 @@ function mafia(){
       instruction+='<button class="primary" style="width:100%;margin-top:12px" onclick="window.mafiaNight()">밤 행동 확정</button>';
     }
     if(phase==="day")instruction='<p>☀️ 아침이 밝았어요. 의심되는 사람에게 투표하세요.</p><div style="display:flex;flex-wrap:wrap;gap:8px">'+choices+'</div><button class="primary" style="width:100%;margin-top:12px" onclick="window.mafiaVote()">투표하기</button>';
-    if(phase==="end")instruction='<h2>'+ (winner()==="town"?"🎉 시민 팀 승리!":"🕶️ 마피아 팀 승리!")+'</h2><p>게임이 끝났어요. 다시 플레이해서 다른 역할도 경험해 보세요.</p><button class="primary" style="width:100%" onclick="window.startGame(\'mafia\')">다시 하기</button>';
+    if(phase==="end"){
+      const endTitle=!me.alive?"💀 탈락했어요":winner()==="town"?"🎉 시민 팀 승리!":winner()==="mafia"?"🕶️ 마피아 팀 승리!":"🏁 게임 종료";
+      instruction='<h2>'+endTitle+'</h2><p>게임이 끝났어요. 다시 플레이해서 다른 역할도 경험해 보세요.</p><button class="primary" style="width:100%" onclick="window.startGame(\'mafia\')">다시 하기</button>';
+    }
     $("#app").innerHTML=shell(gamePage("🕵️ 마피아 게임",`
       <div class="card" style="padding:16px;margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:center"><b>${phase==="night"?"🌙 밤":phase==="day"?"☀️ 낮":phase==="end"?"🏁 결과":"🎭 역할 확인"}</b><span class="tag">${day}일 차</span></div>
