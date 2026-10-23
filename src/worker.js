@@ -703,9 +703,15 @@ async function attendance(request, env) {
     const streak = Number(previous?.streak || 0) + 1;
     const reward = Math.min(1000, 300 + Math.max(0, streak - 1) * 50);
 
-    await env.DB.prepare(
-      "INSERT INTO attendance(user_id,attendance_date,streak,reward) VALUES(?,?,?,?)"
+    const inserted = await env.DB.prepare(
+      "INSERT OR IGNORE INTO attendance(user_id,attendance_date,streak,reward) VALUES(?,?,?,?)"
     ).bind(user.id, date, streak, reward).run();
+
+    // 동시 요청이 들어와도 실제 출석 행을 만든 한 요청만 보상을 지급합니다.
+    if (!inserted.meta?.changes) {
+      const latest = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first();
+      return json({ message: "☑️ 오늘은 이미 출석했어요!", user: publicUser(latest), already: true });
+    }
 
     await env.DB.prepare(
       "UPDATE users SET points = points + ?, xp = xp + 10 WHERE id = ?"
@@ -781,6 +787,55 @@ async function gameResult(request, env) {
 
 
 /* =========================
+   POKE / NUDGE
+========================= */
+async function pokes(request, env, user) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pokes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_user_id INTEGER NOT NULL,
+      to_user_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS online_sessions (
+      user_id INTEGER PRIMARY KEY,
+      last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+  if (request.method === "GET") {
+    const [users, inbox] = await Promise.all([
+      env.DB.prepare(`
+        SELECT u.id, u.username,
+          CASE WHEN s.last_seen >= datetime('now','-90 seconds') THEN 1 ELSE 0 END AS online
+        FROM users u LEFT JOIN online_sessions s ON s.user_id=u.id
+        WHERE u.id != ?
+        ORDER BY online DESC, u.username COLLATE NOCASE ASC LIMIT 12
+      `).bind(user.id).all(),
+      env.DB.prepare(`
+        SELECT p.id, p.created_at, u.username AS from_username
+        FROM pokes p JOIN users u ON u.id=p.from_user_id
+        WHERE p.to_user_id=? ORDER BY p.id DESC LIMIT 10
+      `).bind(user.id).all()
+    ]);
+    return json({ users: users.results || [], received: inbox.results || [] });
+  }
+  if (request.method !== "POST") return json({ error: "지원하지 않는 요청입니다." }, 405);
+  const body = await readJson(request);
+  const targetId = Number(body.targetId);
+  if (!Number.isSafeInteger(targetId) || targetId <= 0 || targetId === Number(user.id)) return json({ error: "콕 찌를 상대를 선택해 주세요." }, 400);
+  const target = await env.DB.prepare("SELECT id FROM users WHERE id=?").bind(targetId).first();
+  if (!target) return json({ error: "상대 계정을 찾을 수 없어요." }, 404);
+  const recent = await env.DB.prepare(`
+    SELECT id FROM pokes WHERE from_user_id=? AND to_user_id=? AND created_at >= datetime('now','-30 seconds') ORDER BY id DESC LIMIT 1
+  `).bind(user.id, targetId).first();
+  if (recent) return json({ error: "같은 사람은 30초 뒤에 다시 콕 찌를 수 있어요." }, 429);
+  await env.DB.prepare("INSERT INTO pokes(from_user_id,to_user_id) VALUES(?,?)").bind(user.id,targetId).run();
+  return json({ message: "👉 콕 찌르기를 보냈어요!" });
+}
+
+/* =========================
    ACTION
 ========================= */
 
@@ -848,7 +903,7 @@ async function action(request, env) {
       "💼 일해서 500P와 XP를 얻었어요!";
 
   } else if (
-    actionType === "cook"
+    actionType === "cook" || actionType === "feed"
   ) {
 
     if (energy < 3) {
@@ -862,7 +917,7 @@ async function action(request, env) {
     xp += 15;
 
     message =
-      "🍳 요리를 완료했어요!";
+      actionType === "feed" ? "🐰 하니에게 밥을 줬어요! 포만감이 +20 올랐어요." : "🍳 요리를 완료했어요!";
 
   } else if (
     actionType === "rest"
@@ -1902,7 +1957,7 @@ export default {
     ========================= */
 
     if (url.pathname === "/" || url.pathname === "") {
-      return new Response("<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\"><meta name=\"theme-color\" content=\"#eef8ff\"><title>하니게임즈</title><link rel=\"stylesheet\" href=\"/style.css?v=20261008-5\"><style>html,body{margin:0;min-height:100%;background:#eef8ff;font-family:system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}#boot{min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}.card{width:min(420px,100%);box-sizing:border-box;background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 35px rgba(70,130,170,.15);text-align:center}.bunny{font-size:64px}.title{font-size:28px;font-weight:900;color:#4d7fae;margin:8px}.sub{color:#7890a3}button{width:100%;padding:14px;border:0;border-radius:12px;background:#69a9dc;color:#fff;font-weight:800;font-size:16px;margin-top:8px}</style></head><body><div id=\"boot\"><div class=\"card\"><div class=\"bunny\">🐰</div><div class=\"title\">하니게임즈</div><div class=\"sub\">하니게임즈를 불러오는 중이에요 💙</div></div></div><script>setTimeout(function(){var e=document.querySelector(\".sub\");if(e)e.textContent=\"하니게임즈 불러오는 중…\";},300);</script><script src=\"/app.js?v=20261022-11\"></script><script src=\"/battle.js?v=20261022-2\"></script></body></html>", {
+      return new Response("<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\"><meta name=\"theme-color\" content=\"#eef8ff\"><title>하니게임즈</title><link rel=\"stylesheet\" href=\"/style.css?v=20261008-5\"><style>html,body{margin:0;min-height:100%;background:#eef8ff;font-family:system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}#boot{min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}.card{width:min(420px,100%);box-sizing:border-box;background:#fff;border-radius:24px;padding:28px;box-shadow:0 12px 35px rgba(70,130,170,.15);text-align:center}.bunny{font-size:64px}.title{font-size:28px;font-weight:900;color:#4d7fae;margin:8px}.sub{color:#7890a3}button{width:100%;padding:14px;border:0;border-radius:12px;background:#69a9dc;color:#fff;font-weight:800;font-size:16px;margin-top:8px}</style></head><body><div id=\"boot\"><div class=\"card\"><div class=\"bunny\">🐰</div><div class=\"title\">하니게임즈</div><div class=\"sub\">하니게임즈를 불러오는 중이에요 💙</div></div></div><script>setTimeout(function(){var e=document.querySelector(\".sub\");if(e)e.textContent=\"하니게임즈 불러오는 중…\";},300);</script><script src=\"/app.js?v=20261023-12\"></script><script src=\"/battle.js?v=20261022-2\"></script></body></html>", {
         headers: {
           "content-type": "text/html; charset=UTF-8",
           "cache-control": "no-store, no-cache, must-revalidate"
@@ -2108,6 +2163,11 @@ export default {
               Number(champion?.id) === Number(user.id)
             )
         });
+      }
+
+      /* POKE / NUDGE */
+      if (url.pathname === "/api/pokes") {
+        return pokes(request, env, user);
       }
 
       /* ACTION */
