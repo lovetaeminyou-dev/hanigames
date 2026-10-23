@@ -218,6 +218,8 @@ function nav(){
     ["matching","💗","매칭"]
   ];
 
+  if(S.user?.role === "admin") ns.push(["matchingAdmin","🛡️","매칭관리"]);
+
   return `
     <nav class="bottom-nav">
 
@@ -446,6 +448,9 @@ async function go(
 
   else if(tab==="matching")
     await window.openMatching();
+
+  else if(tab==="matchingAdmin")
+    await window.openMatchingAdmin();
 
   if(push)
     scrollTo(0,0);
