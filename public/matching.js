@@ -13,11 +13,11 @@ function matchingRender(data) {
   const profile = data.profile;
   let body = '<div class="section-title">💗 하니 매칭</div><div class="section-sub">서로 하트를 보내면 둘만의 채팅이 열려요. 하트는 서로 마음이 통하기 전까지 비공개예요.</div>';
   if (!profile) {
-    body += '<section class="card match-panel"><div class="match-hero">💌</div><h2>BBW 시무방 회원 전용</h2><p class="muted">시무방 입장코드로 인증하고, 기존 하니게임즈 닉네임으로 참여해요. 사진이나 자기소개는 필요 없어요.</p><div class="field"><label for="match-code">시무방 입장코드</label><input id="match-code" type="password" autocomplete="off" placeholder="입장코드 입력"></div><div class="field"><label for="match-gender">내 성별</label><select id="match-gender"><option value="">선택해 주세요</option><option value="female">여자</option><option value="male">남자</option></select></div><button class="primary full" onclick="window.matchingSetup()">인증하고 시작하기 💗</button><p class="match-note">매칭 프로필은 매칭 기능 안에서만 사용돼요. 입장코드가 실제 단톡방 가입 여부를 자동 확인해 주는 것은 아니에요.</p></section>';
+    body += '<section class="card match-panel"><div class="match-hero">💌</div><h2>BBW 시무방 회원 전용</h2><p class="muted">시무방 입장코드로 인증하고, 기존 하니게임즈 닉네임으로 참여해요. 사진이나 자기소개는 필요 없어요.</p><div class="field"><label for="match-code">시무방 입장코드</label><input id="match-code" type="password" autocomplete="off" placeholder="입장코드 입력"></div><div class="field"><label for="match-nickname">시무방에서 사용하는 닉네임</label><input id="match-nickname" maxlength="20" autocomplete="off" placeholder="새 닉네임이 아닌 기존 단톡 닉네임"></div><div class="field"><label for="match-gender">내 성별</label><select id="match-gender"><option value="">선택해 주세요</option><option value="female">여자</option><option value="male">남자</option></select></div><button class="primary full" onclick="window.matchingSetup()">인증하고 시작하기 💗</button><p class="match-note">매칭 프로필은 매칭 기능 안에서만 사용돼요. 입장코드가 실제 단톡방 가입 여부를 자동 확인해 주는 것은 아니에요.</p></section>';
     $("#app").innerHTML = shell(body);
     return;
   }
-  body += '<section class="card match-toggle"><div><b>내 매칭 프로필</b><p class="muted">닉네임: ' + esc(S.user?.username || "") + ' · 성별: ' + (profile.gender === "female" ? "여자" : "남자") + '</p><small>' + (profile.active ? "현재 다른 회원에게 프로필이 보여요." : "참여를 켜야 다른 회원에게 보여요.") + '</small></div><button class="' + (profile.active ? "secondary" : "primary") + '" onclick="window.matchingToggle(' + (!profile.active) + ')">' + (profile.active ? "참여 끄기" : "매칭 참여하기") + '</button></section>';
+  body += '<section class="card match-toggle"><div><b>내 매칭 프로필</b><p class="muted">닉네임: ' + esc(profile.nickname || S.user?.username || "") + ' · 성별: ' + (profile.gender === "female" ? "여자" : "남자") + '</p><small>' + (profile.active ? "현재 다른 회원에게 프로필이 보여요." : "참여를 켜야 다른 회원에게 보여요.") + '</small></div><button class="' + (profile.active ? "secondary" : "primary") + '" onclick="window.matchingToggle(' + (!profile.active) + ')">' + (profile.active ? "참여 끄기" : "매칭 참여하기") + '</button></section>';
   body += '<div class="section-title">💕 새로운 인연</div><div class="section-sub">이성 회원만 표시돼요. 상대의 하트 여부나 하트 개수는 공개되지 않아요.</div>';
   if (!profile.active) {
     body += '<section class="card match-empty"><div>🌙</div><b>매칭 참여가 꺼져 있어요</b><p class="muted">참여를 켜면 다른 회원을 둘러볼 수 있어요.</p></section>';
@@ -35,7 +35,8 @@ window.matchingSetup = async function () {
   try {
     const code = document.querySelector("#match-code")?.value || "";
     const gender = document.querySelector("#match-gender")?.value || "";
-    const data = await api("/api/matching/setup", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,gender})});
+    const nickname = document.querySelector("#match-nickname")?.value?.trim() || "";
+    const data = await api("/api/matching/setup", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,gender,nickname})});
     window.__matchingState = data;
     toast("시무방 인증이 완료됐어요 💗");
     matchingRender(data);
