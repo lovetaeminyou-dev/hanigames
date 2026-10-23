@@ -605,3 +605,49 @@ button,input,select{font-family:inherit}
   .game-card h3{font-size:17px}
   .login h1{font-size:34px}
 }
+
+
+/* GAME ICONS · individually art-directed to match the sky-lavender arcade */
+.game-grid .game-card{isolation:isolate;overflow:hidden}
+.game-grid .game-card:before{
+  content:"";position:absolute;width:150px;height:150px;right:-62px;top:42px;
+  border-radius:50%;background:radial-gradient(circle,#a6b9ff20 0,transparent 70%);
+  pointer-events:none;z-index:-1;
+}
+.game-icon{
+  position:relative;isolation:isolate;
+  width:76px;height:76px;margin:0 0 16px;
+  border-radius:25px;
+  display:grid;place-items:center;
+  font-size:43px;line-height:1;
+  border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 10px 24px rgba(82,104,180,.13),inset 0 1px 0 #ffffffd9;
+  overflow:hidden;
+}
+.game-icon:before{
+  content:"";position:absolute;inset:5px;border-radius:19px;
+  border:1px solid #ffffff80;pointer-events:none;z-index:-1;
+}
+.game-icon:after{
+  content:"";position:absolute;width:56px;height:56px;right:-22px;top:-24px;
+  border-radius:50%;background:#ffffff70;filter:blur(1px);pointer-events:none;
+}
+.game-grid .game-card:nth-child(1) .game-icon{
+  background:radial-gradient(circle at 25% 18%,#ffffff 0,#dffaff 28%,transparent 62%),linear-gradient(145deg,#8ce4f4,#8b9eff 65%,#b6a1ff);
+  color:#fff;text-shadow:0 3px 10px #5d76d875;
+}
+.game-grid .game-card:nth-child(2) .game-icon{
+  background:radial-gradient(circle at 25% 18%,#ffffff 0,#f8eaff 30%,transparent 65%),linear-gradient(145deg,#c6b4ff,#8f8df5 60%,#7fbbff);
+  color:#fff;text-shadow:0 3px 10px #6f5cbe80;
+}
+.game-grid .game-card:nth-child(3) .game-icon{
+  background:radial-gradient(circle at 25% 18%,#ffffff 0,#e1f7ff 30%,transparent 65%),linear-gradient(145deg,#91d8ef,#8299f6 58%,#b59cff);
+  color:#fff;text-shadow:0 3px 10px #526ac780;
+}
+.game-card h3{position:relative;z-index:1}
+.game-card p{position:relative;z-index:1}
+.game-start-btn{position:relative;z-index:2}
+@media(max-width:560px){
+  .game-icon{width:62px;height:62px;border-radius:21px;font-size:35px;margin-bottom:13px}
+  .game-icon:before{border-radius:15px}
+}
