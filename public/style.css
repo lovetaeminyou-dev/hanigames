@@ -413,3 +413,31 @@ button:active{transform:scale(.975)}
  .match-person{padding:14px 10px}
  .match-row{gap:7px}
 }
+
+
+/* HANI MATCHING ADMIN */
+.match-admin-tabs{display:flex;gap:9px;margin:14px 0 18px}
+.match-admin-tabs button{width:auto;flex:1}
+.match-admin-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.match-admin-summary>div{padding:15px;border:1px solid #e9eaf7;border-radius:16px;background:#fff;text-align:center}
+.match-admin-summary b{display:block;font-size:24px;font-weight:900;color:#6557d9}
+.match-admin-summary small{display:block;font-size:11px;color:#929bb0;margin-top:4px}
+.match-admin-list{display:grid;gap:12px}
+.match-admin-report,.match-admin-member{padding:15px}
+.match-admin-report-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.match-admin-report-top>b{font-size:14px;overflow-wrap:anywhere}
+.match-status{font-size:10px;font-weight:800;border-radius:20px;padding:5px 9px;background:#f0f1f6;color:#697188;white-space:nowrap}
+.match-status.pending{background:#fff0d7;color:#9a6100}
+.match-status.reviewed{background:#e9edff;color:#4f5bc2}
+.match-status.actioned,.match-status.active{background:#e4f8ed;color:#247b50}
+.match-status.dismissed,.match-status.inactive{background:#f1f2f7;color:#737b90}
+.match-admin-meta{font-size:11px;line-height:1.7;color:#8e97ac;margin-top:10px;overflow-wrap:anywhere}
+.match-admin-details{font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0}
+.match-admin-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:13px}
+.match-admin-actions button{width:auto;padding:9px 11px;font-size:11px}
+.match-admin-member-main{display:flex;align-items:center;gap:10px}
+.match-admin-member-main>div:last-child{min-width:0;display:flex;flex-direction:column;gap:4px}
+.match-admin-member-main b{font-size:14px;overflow-wrap:anywhere}
+.match-admin-member-main small{font-size:10px;color:#929bb0;overflow-wrap:anywhere}
+.match-admin-loading{padding:22px;text-align:center;color:#929bb0}
+@media(max-width:520px){.match-admin-report,.match-admin-member{padding:12px}.match-admin-report-top{align-items:flex-start;flex-direction:column}.match-admin-actions button{flex:1}.match-admin-meta{font-size:10px}}
