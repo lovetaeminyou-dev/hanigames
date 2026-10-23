@@ -225,6 +225,7 @@ async function getCurrentUser(request, env) {
 
 async function register(request, env) {
   try {
+    await ensureUserNeeds(env);
     const body =
       await readJson(request);
 
@@ -327,7 +328,7 @@ async function register(request, env) {
     const user =
       await env.DB
         .prepare(
-          "SELECT * FROM users WHERE id = ?"
+          "SELECT users.*, COALESCE(n.energy,100) AS energy, COALESCE(n.fullness,100) AS fullness FROM users LEFT JOIN user_needs n ON n.user_id=users.id WHERE users.id = ?"
         )
         .bind(result.meta.last_row_id)
         .first();
@@ -366,6 +367,7 @@ async function login(request, env) {
 
   try {
 
+    await ensureUserNeeds(env);
     const body =
       await readJson(request);
 
@@ -396,7 +398,7 @@ async function login(request, env) {
     const user =
       await env.DB
         .prepare(
-          "SELECT * FROM users WHERE username = ?"
+          "SELECT users.*, COALESCE(n.energy,100) AS energy, COALESCE(n.fullness,100) AS fullness FROM users LEFT JOIN user_needs n ON n.user_id=users.id WHERE users.username = ?"
         )
         .bind(username)
         .first();
@@ -644,7 +646,7 @@ async function claimDailyMission(request,env){
   env.DB.prepare("UPDATE users SET points=points+? WHERE id=? AND changes()=1").bind(mission.reward,user.id)
  ]);
  if(!results?.[0]?.meta?.changes)return json({error:"이미 보상을 받았어요."},409);
- const updated=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(user.id).first();
+ const updated=await env.DB.prepare("SELECT users.*, COALESCE(n.energy,100) AS energy, COALESCE(n.fullness,100) AS fullness FROM users LEFT JOIN user_needs n ON n.user_id=users.id WHERE users.id=?").bind(user.id).first();
  return json({message:`🎁 ${mission.title} 보상 +${mission.reward}P`,reward:mission.reward,user:publicUser(updated)});
 }
 
@@ -709,7 +711,7 @@ async function attendance(request, env) {
 
     // 동시 요청이 들어와도 실제 출석 행을 만든 한 요청만 보상을 지급합니다.
     if (!inserted.meta?.changes) {
-      const latest = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first();
+      const latest = await env.DB.prepare("SELECT users.*, COALESCE(n.energy,100) AS energy, COALESCE(n.fullness,100) AS fullness FROM users LEFT JOIN user_needs n ON n.user_id=users.id WHERE users.id = ?").bind(user.id).first();
       return json({ message: "☑️ 오늘은 이미 출석했어요!", user: publicUser(latest), already: true });
     }
 
@@ -718,7 +720,7 @@ async function attendance(request, env) {
     ).bind(reward, user.id).run();
 
     const updated = await env.DB.prepare(
-      "SELECT * FROM users WHERE id = ?"
+      "SELECT users.*, COALESCE(n.energy,100) AS energy, COALESCE(n.fullness,100) AS fullness FROM users LEFT JOIN user_needs n ON n.user_id=users.id WHERE users.id = ?"
     ).bind(user.id).first();
 
     return json({
@@ -762,12 +764,12 @@ async function gameResult(request, env) {
     await env.DB.prepare("INSERT OR IGNORE INTO holdem_bot_rewards(user_id,reward_date,wins) VALUES(?,?,0)").bind(user.id,today).run();
     const claim=await env.DB.prepare("UPDATE holdem_bot_rewards SET wins=wins+1 WHERE user_id=? AND reward_date=? AND wins<10").bind(user.id,today).run();
     if(!claim.meta?.changes){
-      const updated=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(user.id).first();
+      const updated=await env.DB.prepare("SELECT users.*, COALESCE(n.energy,100) AS energy, COALESCE(n.fullness,100) AS fullness FROM users LEFT JOIN user_needs n ON n.user_id=users.id WHERE users.id=?").bind(user.id).first();
       return json({message:"오늘 봇전 포인트 보상 10회를 모두 받았어요. 내일 다시 도전해요!",reward:0,limitReached:true,user:publicUser(updated)});
     }
     await env.DB.prepare("UPDATE users SET points=points+50 WHERE id=?").bind(user.id).run();
     await recordGameMissionProgress(env, user.id, "holdem", true);
-    const updated=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(user.id).first();
+    const updated=await env.DB.prepare("SELECT users.*, COALESCE(n.energy,100) AS energy, COALESCE(n.fullness,100) AS fullness FROM users LEFT JOIN user_needs n ON n.user_id=users.id WHERE users.id=?").bind(user.id).first();
     const count=await env.DB.prepare("SELECT wins FROM holdem_bot_rewards WHERE user_id=? AND reward_date=?").bind(user.id,today).first();
     return json({message:"🤖 봇전 승리! +50P ("+Number(count?.wins||0)+"/10회)",reward:50,dailyWins:Number(count?.wins||0),user:publicUser(updated)});
   }
@@ -781,7 +783,7 @@ async function gameResult(request, env) {
   const xp=Math.min(100,Math.floor(score/50));
   await env.DB.prepare("UPDATE users SET points=points+?, xp=xp+?, wins=wins+1 WHERE id=?").bind(reward,xp,user.id).run();
   await recordGameMissionProgress(env, user.id, game, false);
-  const updated=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(user.id).first();
+  const updated=await env.DB.prepare("SELECT users.*, COALESCE(n.energy,100) AS energy, COALESCE(n.fullness,100) AS fullness FROM users LEFT JOIN user_needs n ON n.user_id=users.id WHERE users.id=?").bind(user.id).first();
   return json({message:"🎮 "+game+" "+score.toLocaleString()+"점! +"+reward.toLocaleString()+"P",score,reward,combo,user:publicUser(updated)});
 }
 
@@ -990,7 +992,7 @@ async function action(request, env) {
   const updated =
     await env.DB
       .prepare(
-        "SELECT * FROM users WHERE id = ?"
+        "SELECT users.*, COALESCE(n.energy,100) AS energy, COALESCE(n.fullness,100) AS fullness FROM users LEFT JOIN user_needs n ON n.user_id=users.id WHERE users.id = ?"
       )
       .bind(user.id)
       .first();
