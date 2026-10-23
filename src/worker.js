@@ -2054,35 +2054,22 @@ async function matchingApi(request, env, user, url) {
   if (path === "/api/matching/state" && request.method === "GET") return matchingState(env,user);
   if (path === "/api/matching/setup" && request.method === "POST") {
     const body = await readJson(request);
-    const code = String(body.code||"").trim();
     const gender = String(body.gender||"");
     const nickname = String(body.nickname||"").trim();
-    if (!env.BBW_MATCH_CODE) return json({error:"운영자가 BBW_MATCH_CODE 입장코드를 설정해야 해요."},503);
     if (gender!=="male" && gender!=="female") return json({error:"성별을 선택해 주세요."},400);
     if (nickname.length<2 || nickname.length>20) return json({error:"시무방에서 사용하는 닉네임을 2~20자로 입력해 주세요."},400);
-    const attempt = await env.DB.prepare("SELECT attempts,window_start FROM matching_code_attempts WHERE user_id=?").bind(user.id).first();
-    const windowStart = attempt?.window_start ? Date.parse(String(attempt.window_start).replace(" ","T")+"Z") : 0;
-    const now = Date.now();
-    const withinWindow = windowStart && now-windowStart < 60*60*1000;
-    if (withinWindow && Number(attempt.attempts)>=5) return json({error:"입장코드 입력 횟수를 초과했어요. 1시간 뒤 다시 시도해 주세요."},429);
-    if (code !== String(env.BBW_MATCH_CODE)) {
-      if (withinWindow) await env.DB.prepare("UPDATE matching_code_attempts SET attempts=attempts+1 WHERE user_id=?").bind(user.id).run();
-      else await env.DB.prepare("INSERT INTO matching_code_attempts(user_id,attempts,window_start) VALUES(?,1,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET attempts=1,window_start=CURRENT_TIMESTAMP").bind(user.id).run();
-      return json({error:"입장코드가 맞지 않아요. 시무방 입장코드를 확인해 주세요."},403);
-    }
     const duplicate = await env.DB.prepare("SELECT user_id FROM matching_profiles WHERE group_nickname=? COLLATE NOCASE AND user_id<>?").bind(nickname,user.id).first();
     if (duplicate) return json({error:"이미 매칭에 등록된 닉네임이에요. 시무방 닉네임을 확인해 주세요."},409);
     await env.DB.prepare("INSERT INTO matching_profiles(user_id,gender,group_nickname,active) VALUES(?,?,?,0) ON CONFLICT(user_id) DO NOTHING").bind(user.id,gender,nickname).run();
     const profile = await env.DB.prepare("SELECT gender,group_nickname FROM matching_profiles WHERE user_id=?").bind(user.id).first();
     if (profile.gender !== gender) return json({error:"등록된 성별은 변경할 수 없어요. 운영자에게 문의해 주세요."},409);
     if (profile.group_nickname !== nickname) return json({error:"등록된 닉네임은 변경할 수 없어요. 운영자에게 문의해 주세요."},409);
-    await env.DB.prepare("DELETE FROM matching_code_attempts WHERE user_id=?").bind(user.id).run();
     return matchingState(env,user);
   }
   if (path === "/api/matching/profile" && request.method === "POST") {
     const body = await readJson(request);
     const profile = await env.DB.prepare("SELECT user_id FROM matching_profiles WHERE user_id=?").bind(user.id).first();
-    if (!profile) return json({error:"먼저 입장코드 인증을 완료해 주세요."},400);
+    if (!profile) return json({error:"먼저 매칭 프로필을 등록해 주세요."},400);
     await env.DB.prepare("UPDATE matching_profiles SET active=? WHERE user_id=?").bind(body.active?1:0,user.id).run();
     return matchingState(env,user);
   }
