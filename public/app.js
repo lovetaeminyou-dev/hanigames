@@ -214,7 +214,8 @@ function nav(){
     ["games","🎮","게임"],
     ["ranks","🌍","랭킹"],
     ["news","👥","소식"],
-    ["profile","📖","기록"]
+    ["profile","📖","기록"],
+    ["matching","💗","매칭"]
   ];
 
   return `
@@ -442,6 +443,9 @@ async function go(
 
   else if(tab==="profile")
     profile();
+
+  else if(tab==="matching")
+    await window.openMatching();
 
   if(push)
     scrollTo(0,0);
