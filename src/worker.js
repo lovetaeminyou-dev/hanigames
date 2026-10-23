@@ -1937,6 +1937,145 @@ export class GameRoom {
   async onClose(ws){if(!this.sockets.has(ws))return;const uid=this.players.get(ws);this.sockets.delete(ws);this.players.delete(ws);if(!uid||this.finished)return;if(this.started){const opp=Array.from(this.names.keys()).find(id=>id!==uid);if(opp)await this.finishBattle(opp,"leave")}else{try{await this.env.DB.prepare("UPDATE rooms SET status='finished' WHERE room_code=?").bind(this.roomCode).run()}catch{}}}
 }
 
+/* =========================
+   HANI MATCHING
+========================= */
+async function ensureMatchingTables(env) {
+  const statements = [
+    "CREATE TABLE IF NOT EXISTS matching_profiles (user_id INTEGER PRIMARY KEY, gender TEXT NOT NULL CHECK(gender IN ('male','female')), active INTEGER NOT NULL DEFAULT 0, verified_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS matching_code_attempts (user_id INTEGER PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, window_start TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS matching_hearts (from_user INTEGER NOT NULL, to_user INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(from_user,to_user))",
+    "CREATE TABLE IF NOT EXISTS matching_matches (id INTEGER PRIMARY KEY AUTOINCREMENT, user_a INTEGER NOT NULL, user_b INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','ended')), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, ended_at TEXT, UNIQUE(user_a,user_b))",
+    "CREATE TABLE IF NOT EXISTS matching_blocks (blocker_id INTEGER NOT NULL, blocked_id INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(blocker_id,blocked_id))",
+    "CREATE TABLE IF NOT EXISTS matching_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, match_id INTEGER NOT NULL, sender_id INTEGER NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS matching_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, reporter_id INTEGER NOT NULL, target_id INTEGER NOT NULL, match_id INTEGER, reason TEXT NOT NULL, details TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+  ];
+  for (const sql of statements) await env.DB.prepare(sql).run();
+}
+async function matchingBlocked(env, a, b) {
+  return !!(await env.DB.prepare("SELECT 1 FROM matching_blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?) LIMIT 1").bind(a,b,b,a).first());
+}
+async function matchingState(env, user) {
+  const profile = await env.DB.prepare("SELECT user_id,gender,active,verified_at,created_at FROM matching_profiles WHERE user_id=?").bind(user.id).first();
+  if (!profile) return json({profile:null,people:[],matches:[]});
+  const opposite = profile.gender === "male" ? "female" : "male";
+  const peopleResult = profile.active ? await env.DB.prepare(
+    "SELECT p.user_id AS id,p.gender,u.username,p.active FROM matching_profiles p JOIN users u ON u.id=p.user_id WHERE p.active=1 AND p.gender=? AND p.user_id<>? AND NOT EXISTS (SELECT 1 FROM matching_blocks b WHERE (b.blocker_id=? AND b.blocked_id=p.user_id) OR (b.blocker_id=p.user_id AND b.blocked_id=?)) AND NOT EXISTS (SELECT 1 FROM matching_matches m WHERE m.user_a=MIN(?,p.user_id) AND m.user_b=MAX(?,p.user_id)) ORDER BY p.created_at DESC LIMIT 100"
+  ).bind(opposite,user.id,user.id,user.id,user.id,user.id).all() : {results:[]};
+  const likedResult = await env.DB.prepare("SELECT to_user FROM matching_hearts WHERE from_user=?").bind(user.id).all();
+  const liked = new Set((likedResult.results||[]).map(r=>Number(r.to_user)));
+  const people = (peopleResult.results||[]).map(p=>({id:Number(p.id),nickname:p.username,gender:p.gender,liked:liked.has(Number(p.id))}));
+  const matchesResult = await env.DB.prepare(
+    "SELECT m.id,m.status,m.created_at,m.ended_at,CASE WHEN m.user_a=? THEN m.user_b ELSE m.user_a END AS partner_id,u.username AS nickname,p.gender FROM matching_matches m JOIN users u ON u.id=CASE WHEN m.user_a=? THEN m.user_b ELSE m.user_a END LEFT JOIN matching_profiles p ON p.user_id=u.id WHERE (m.user_a=? OR m.user_b=?) ORDER BY CASE WHEN m.status='active' THEN 0 ELSE 1 END,m.id DESC LIMIT 100"
+  ).bind(user.id,user.id,user.id,user.id).all();
+  const matches = [];
+  for (const m of (matchesResult.results||[])) {
+    if (await matchingBlocked(env,user.id,Number(m.partner_id))) continue;
+    matches.push({id:Number(m.id),status:m.status,created_at:m.created_at,ended_at:m.ended_at,partnerId:Number(m.partner_id),nickname:m.nickname,gender:m.gender,canChat:m.status==="active"});
+  }
+  return json({profile:{gender:profile.gender,active:Number(profile.active)===1,verifiedAt:profile.verified_at},people,matches});
+}
+async function matchingApi(request, env, user, url) {
+  await ensureMatchingTables(env);
+  const path = url.pathname;
+  if (path === "/api/matching/state" && request.method === "GET") return matchingState(env,user);
+  if (path === "/api/matching/setup" && request.method === "POST") {
+    const body = await readJson(request);
+    const code = String(body.code||"").trim();
+    const gender = String(body.gender||"");
+    if (!env.BBW_MATCH_CODE) return json({error:"운영자가 BBW_MATCH_CODE 입장코드를 설정해야 해요."},503);
+    if (gender!=="male" && gender!=="female") return json({error:"성별을 선택해 주세요."},400);
+    const attempt = await env.DB.prepare("SELECT attempts,window_start FROM matching_code_attempts WHERE user_id=?").bind(user.id).first();
+    const windowStart = attempt?.window_start ? Date.parse(String(attempt.window_start).replace(" ","T")+"Z") : 0;
+    const now = Date.now();
+    const withinWindow = windowStart && now-windowStart < 60*60*1000;
+    if (withinWindow && Number(attempt.attempts)>=5) return json({error:"입장코드 입력 횟수를 초과했어요. 1시간 뒤 다시 시도해 주세요."},429);
+    if (code !== String(env.BBW_MATCH_CODE)) {
+      if (withinWindow) await env.DB.prepare("UPDATE matching_code_attempts SET attempts=attempts+1 WHERE user_id=?").bind(user.id).run();
+      else await env.DB.prepare("INSERT INTO matching_code_attempts(user_id,attempts,window_start) VALUES(?,1,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET attempts=1,window_start=CURRENT_TIMESTAMP").bind(user.id).run();
+      return json({error:"입장코드가 맞지 않아요. 시무방 입장코드를 확인해 주세요."},403);
+    }
+    await env.DB.prepare("INSERT INTO matching_profiles(user_id,gender,active) VALUES(?,?,0) ON CONFLICT(user_id) DO NOTHING").bind(user.id,gender).run();
+    const profile = await env.DB.prepare("SELECT gender FROM matching_profiles WHERE user_id=?").bind(user.id).first();
+    if (profile.gender !== gender) return json({error:"등록된 성별은 변경할 수 없어요. 운영자에게 문의해 주세요."},409);
+    await env.DB.prepare("DELETE FROM matching_code_attempts WHERE user_id=?").bind(user.id).run();
+    return matchingState(env,user);
+  }
+  if (path === "/api/matching/profile" && request.method === "POST") {
+    const body = await readJson(request);
+    const profile = await env.DB.prepare("SELECT user_id FROM matching_profiles WHERE user_id=?").bind(user.id).first();
+    if (!profile) return json({error:"먼저 입장코드 인증을 완료해 주세요."},400);
+    await env.DB.prepare("UPDATE matching_profiles SET active=? WHERE user_id=?").bind(body.active?1:0,user.id).run();
+    return matchingState(env,user);
+  }
+  if (path === "/api/matching/heart" && request.method === "POST") {
+    const body = await readJson(request);
+    const target = Number(body.targetId);
+    if (!Number.isSafeInteger(target)||target<1||target===Number(user.id)) return json({error:"상대 회원을 찾을 수 없어요."},400);
+    const me = await env.DB.prepare("SELECT gender,active FROM matching_profiles WHERE user_id=?").bind(user.id).first();
+    const other = await env.DB.prepare("SELECT gender,active FROM matching_profiles WHERE user_id=?").bind(target).first();
+    if (!me||!other||Number(me.active)!==1||Number(other.active)!==1) return json({error:"현재 매칭할 수 없는 회원이에요."},400);
+    if (me.gender===other.gender) return json({error:"이성 매칭만 이용할 수 있어요."},400);
+    if (await matchingBlocked(env,user.id,target)) return json({error:"차단 관계에서는 매칭할 수 없어요."},403);
+    const a=Math.min(Number(user.id),target), b=Math.max(Number(user.id),target);
+    const previous=await env.DB.prepare("SELECT id,status FROM matching_matches WHERE user_a=? AND user_b=?").bind(a,b).first();
+    if (previous) return json({error:previous.status==="ended"?"매칭 해제한 상대와는 다시 매칭할 수 없어요.":"이미 매칭된 상대예요."},409);
+    await env.DB.prepare("INSERT OR IGNORE INTO matching_hearts(from_user,to_user) VALUES(?,?)").bind(user.id,target).run();
+    const reciprocal=await env.DB.prepare("SELECT 1 FROM matching_hearts WHERE from_user=? AND to_user=?").bind(target,user.id).first();
+    if (!reciprocal) return json({mutual:false,message:"하트를 보냈어요 💗"});
+    await env.DB.prepare("INSERT OR IGNORE INTO matching_matches(user_a,user_b,status) VALUES(?,?,'active')").bind(a,b).run();
+    const match=await env.DB.prepare("SELECT id,status FROM matching_matches WHERE user_a=? AND user_b=?").bind(a,b).first();
+    if (!match||match.status!=="active") return json({error:"이 상대와는 다시 매칭할 수 없어요."},409);
+    return json({mutual:true,matchId:Number(match.id),message:"서로 호감이 통했어요! 💞 채팅이 열렸어요."});
+  }
+  const chatPath = path.match(/^\/api\/matching\/matches\/(\d+)\/messages$/);
+  if (chatPath && (request.method==="GET"||request.method==="POST")) {
+    const matchId=Number(chatPath[1]);
+    const match=await env.DB.prepare("SELECT * FROM matching_matches WHERE id=? AND (user_a=? OR user_b=?)").bind(matchId,user.id,user.id).first();
+    if (!match) return json({error:"채팅방을 찾을 수 없어요."},404);
+    const partner=Number(match.user_a)===Number(user.id)?Number(match.user_b):Number(match.user_a);
+    if (await matchingBlocked(env,user.id,partner)) return json({error:"차단된 채팅방이에요."},403);
+    if (request.method==="GET") {
+      const rows=await env.DB.prepare("SELECT id,sender_id,body,created_at FROM matching_messages WHERE match_id=? ORDER BY id DESC LIMIT 100").bind(matchId).all();
+      return json({messages:(rows.results||[]).reverse().map(m=>({id:Number(m.id),mine:Number(m.sender_id)===Number(user.id),body:m.body,created_at:m.created_at})),readOnly:match.status!=="active"});
+    }
+    if (match.status!=="active") return json({error:"매칭이 해제되어 새 메시지를 보낼 수 없어요."},403);
+    const body=await readJson(request);
+    const message=String(body.message||"").trim();
+    if (!message||message.length>1000) return json({error:"메시지는 1~1000자로 입력해 주세요."},400);
+    await env.DB.prepare("INSERT INTO matching_messages(match_id,sender_id,body) VALUES(?,?,?)").bind(matchId,user.id,message).run();
+    return json({ok:true});
+  }
+  const endPath=path.match(/^\/api\/matching\/matches\/(\d+)\/end$/);
+  if (endPath && request.method==="POST") {
+    const id=Number(endPath[1]);
+    const result=await env.DB.prepare("UPDATE matching_matches SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE id=? AND status='active' AND (user_a=? OR user_b=?)").bind(id,user.id,user.id).run();
+    if (!result.meta?.changes) return json({error:"이미 해제되었거나 권한이 없는 매칭이에요."},400);
+    return json({ok:true,message:"매칭을 해제했어요. 기존 대화는 읽기만 가능해요."});
+  }
+  if (path === "/api/matching/block" && request.method==="POST") {
+    const body=await readJson(request), target=Number(body.targetId);
+    if (!Number.isSafeInteger(target)||target<1||target===Number(user.id)) return json({error:"차단할 회원을 확인해 주세요."},400);
+    await env.DB.prepare("INSERT OR IGNORE INTO matching_blocks(blocker_id,blocked_id) VALUES(?,?)").bind(user.id,target).run();
+    const a=Math.min(Number(user.id),target), b=Math.max(Number(user.id),target);
+    await env.DB.prepare("UPDATE matching_matches SET status='ended',ended_at=CURRENT_TIMESTAMP WHERE user_a=? AND user_b=? AND status='active'").bind(a,b).run();
+    return json({ok:true,message:"차단했어요. 서로의 매칭 목록과 연락이 제한돼요."});
+  }
+  if (path === "/api/matching/report" && request.method==="POST") {
+    const body=await readJson(request), target=Number(body.targetId), matchId=Number(body.matchId)||null;
+    const reason=String(body.reason||"").trim(), details=String(body.details||"").trim().slice(0,1000);
+    if (!Number.isSafeInteger(target)||target<1||target===Number(user.id)||!reason) return json({error:"신고 사유를 입력해 주세요."},400);
+    if (matchId) {
+      const match=await env.DB.prepare("SELECT id FROM matching_matches WHERE id=? AND (user_a=? OR user_b=?)").bind(matchId,user.id,user.id).first();
+      if (!match) return json({error:"신고할 매칭을 확인할 수 없어요."},403);
+    }
+    await env.DB.prepare("INSERT INTO matching_reports(reporter_id,target_id,match_id,reason,details) VALUES(?,?,?,?,?)").bind(user.id,target,matchId,reason,details).run();
+    return json({ok:true,message:"신고가 접수됐어요. 운영자가 내용을 검토할게요."});
+  }
+  return json({error:"지원하지 않는 매칭 요청이에요."},404);
+}
+
+
 /* =========================================================
    MAIN WORKER
 ========================================================= */
@@ -1965,6 +2104,15 @@ export default {
           "cache-control": "no-store, no-cache, must-revalidate"
         }
       });
+    }
+
+    /* =========================
+       HANI MATCHING API
+    ========================= */
+    if (url.pathname.startsWith("/api/matching/")) {
+      const user = await getCurrentUser(request, env);
+      if (!user) return json({ error: "로그인이 필요합니다." }, 401);
+      return matchingApi(request, env, user, url);
     }
 
     /* =========================
