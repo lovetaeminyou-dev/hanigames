@@ -82,28 +82,52 @@ async function hashPassword(password, salt) {
    TOKEN
 ========================= */
 
-function makeToken(user) {
-  return bytesToBase64Url(
-    encoder.encode(
-      JSON.stringify({
-        id: user.id,
-        username: user.username,
-        created: Date.now()
-      })
-    )
+async function makeToken(user, env) {
+  const payload = bytesToBase64Url(encoder.encode(JSON.stringify({
+    id: user.id,
+    username: user.username,
+    created: Date.now()
+  })));
+  if (!env?.HANI_TOKEN_SECRET) return payload;
+  const key = await crypto.subtle.importKey(
+    "raw", encoder.encode(String(env.HANI_TOKEN_SECRET)),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
   );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+  return payload + "." + bytesToBase64Url(signature);
 }
 
-function readToken(token) {
+async function readToken(token, env) {
   try {
-    return JSON.parse(
-      decoder.decode(
-        base64UrlToBytes(token)
-      )
-    );
+    const parts = String(token || "").split(".");
+    if (parts.length === 2) {
+      if (!env?.HANI_TOKEN_SECRET) return null;
+      const key = await crypto.subtle.importKey(
+        "raw", encoder.encode(String(env.HANI_TOKEN_SECRET)),
+        { name: "HMAC", hash: "SHA-256" }, false, ["verify"]
+      );
+      const valid = await crypto.subtle.verify(
+        "HMAC", key, base64UrlToBytes(parts[1]), encoder.encode(parts[0])
+      );
+      if (!valid) return null;
+      const data = JSON.parse(decoder.decode(base64UrlToBytes(parts[0])));
+      return { ...data, _signed: true };
+    }
+    const legacy = JSON.parse(decoder.decode(base64UrlToBytes(token)));
+    return { ...legacy, _signed: false };
   } catch {
     return null;
   }
+}
+
+async function getMatchingUser(request, env) {
+  if (!env?.HANI_TOKEN_SECRET) return { error: "보안을 위해 운영자가 HANI_TOKEN_SECRET을 설정해야 해요." };
+  const authorization = request.headers.get("authorization") || "";
+  if (!authorization.startsWith("Bearer ")) return null;
+  const data = await readToken(authorization.slice(7), env);
+  if (!data?._signed || !data.id || !data.username) return null;
+  return await env.DB.prepare("SELECT id,username FROM users WHERE id=? AND username=?")
+    .bind(data.id, data.username).first();
 }
 
 /* =========================
@@ -181,7 +205,7 @@ async function getCurrentUser(request, env) {
       authorization.slice(7);
 
     const data =
-      readToken(token);
+      await readToken(token, env);
 
     if (data?.id) {
       const user =
@@ -335,7 +359,7 @@ async function register(request, env) {
 
     return json({
       user: publicUser(user),
-      token: makeToken(user)
+      token: await makeToken(user, env)
     });
 
   } catch (error) {
@@ -516,7 +540,7 @@ async function login(request, env) {
         publicUser(user),
 
       token:
-        makeToken(user)
+        await makeToken(user, env)
     });
 
   } catch (error) {
@@ -2110,8 +2134,9 @@ export default {
        HANI MATCHING API
     ========================= */
     if (url.pathname.startsWith("/api/matching/")) {
-      const user = await getCurrentUser(request, env);
-      if (!user) return json({ error: "로그인이 필요합니다." }, 401);
+      const user = await getMatchingUser(request, env);
+      if (user?.error) return json({ error: user.error }, 503);
+      if (!user) return json({ error: "보안 로그인이 필요해요. 로그아웃 후 다시 로그인해 주세요." }, 401);
       return matchingApi(request, env, user, url);
     }
 
