@@ -287,11 +287,11 @@ function shell(body){
 function nav(){
 
   const ns=[
-    ["home","🏠","내 하니"],
+    ["home","🐰","육성"],
     ["games","🎮","게임"],
-    ["ranks","🌍","랭킹"],
-    ["news","👥","소식"],
-    ["profile","📖","기록"],
+    ["ranks","🏆","랭킹"],
+    ["news","👥","커뮤니티"],
+    ["profile","📚","기록"],
     ["matching","💗","매칭"]
   ];
 
