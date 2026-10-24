@@ -2030,7 +2030,7 @@ async function publicNotice(env) {
 ========================================================= */
 
 export class GameRoom {
-  constructor(state,env){this.state=state;this.env=env;this.sockets=new Set();this.players=new Map();this.boards=new Map();this.left=new Map();this.names=new Map();this.started=false;this.finished=false;this.roomCode="";this.bgSockets=new Map();this.bgReady=new Set();this.bgChat=[];this.bgGame="";this.bgHostId="";this.bgPhase="lobby";this.bgSecret=null;this.bgVotes=new Map();this.bgStartedAt=null;}
+  constructor(state,env){this.state=state;this.env=env;this.sockets=new Set();this.players=new Map();this.boards=new Map();this.left=new Map();this.names=new Map();this.started=false;this.finished=false;this.roomCode="";this.bgSockets=new Map();this.bgReady=new Set();this.bgChat=[];this.bgGame="";this.bgHostId="";this.bgPhase="lobby";this.bgSecret=null;this.bgVotes=new Map();this.bgStartedAt=null;this.bgGameState=null;}
   send(ws,d){try{ws.send(JSON.stringify(d))}catch{this.sockets.delete(ws);this.players.delete(ws)}}
   broadcast(d){const m=JSON.stringify(d);for(const ws of this.sockets){try{ws.send(m)}catch{this.sockets.delete(ws);this.players.delete(ws)}}}
   async fetch(request){
@@ -2050,9 +2050,113 @@ export class GameRoom {
   bgBroadcast(){
     const base=this.bgPublic();
     for(const [ws,p] of this.bgSockets){
-      const privateData=this.bgSecret&&this.bgGame==="liar" ? {isLiar:p.id===this.bgSecret.liarId,clue:p.id===this.bgSecret.liarId?this.bgSecret.liarWord:this.bgSecret.word,category:this.bgSecret.category} : null;
-      this.bgSend(ws,{...base,privateData,result:this.bgSecret?.result||null});
+      let privateData=null,gameState=null;
+      if(this.bgSecret&&this.bgGame==="liar")privateData={isLiar:p.id===this.bgSecret.liarId,clue:p.id===this.bgSecret.liarId?this.bgSecret.liarWord:this.bgSecret.word,category:this.bgSecret.category};
+      const g=this.bgGameState;
+      if(g){
+        if(this.bgGame==="bang"){
+          gameState={players:g.players.map(x=>({id:x.id,name:x.name,hp:x.hp,handCount:x.hand.length,alive:x.alive})),turnId:g.players[g.turn]?.id,log:g.log.slice(-12),over:g.over,winner:g.winner};
+          const own=g.players.find(x=>x.id===p.id);if(own)privateData={role:own.role,hand:own.hand.slice(),hp:own.hp};
+        }else if(this.bgGame==="tichu"){
+          gameState={players:g.players.map(x=>({id:x.id,name:x.name,team:x.team,handCount:x.hand.length})),turnId:g.players[g.turn]?.id,last:g.last,passes:g.passes,log:g.log.slice(-12),over:g.over,winner:g.winner};
+          const own=g.players.find(x=>x.id===p.id);if(own)privateData={hand:own.hand.slice(),team:own.team};
+        }else if(this.bgGame==="rummikub"){
+          gameState={players:g.players.map(x=>({id:x.id,name:x.name,handCount:x.hand.length,opened:x.opened})),poolCount:g.pool.length,table:g.table,turnId:g.players[g.turn]?.id,log:g.log.slice(-12),over:g.over,winner:g.winner};
+          const own=g.players.find(x=>x.id===p.id);if(own)privateData={hand:own.hand.slice()};
+        }else if(this.bgGame==="lasvegas"){
+          gameState={players:g.players.map(x=>({id:x.id,name:x.name,diceCount:x.dice.length,money:x.money})),casinos:g.casinos.map(c=>({num:c.num,bills:c.bills,placed:c.placed.map(a=>a.length)})),turnId:g.players[g.turn]?.id,log:g.log.slice(-12),over:g.over,winner:g.winner};
+          const own=g.players.find(x=>x.id===p.id);if(own)privateData={dice:own.dice.slice()};
+        }
+      }
+      this.bgSend(ws,{...base,privateData,gameState,result:this.bgSecret?.result||null});
     }
+  }
+  bgShuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+  bgCreateGameState(people){
+    const players=people.map(p=>({id:p.id,name:p.name}));
+    if(this.bgGame==="bang"){
+      const roles=this.bgShuffle(["보안관","무법자","무법자","배신자"]);
+      const deck=this.bgShuffle([...Array(18).fill("bang"),...Array(8).fill("miss"),...Array(6).fill("beer"),...Array(5).fill("panic")]);
+      return {players:players.map((p,i)=>({...p,role:roles[i],hp:roles[i]==="보안관"?5:4,alive:true,hand:deck.splice(0,4)})),deck,turn:0,log:["뱅! 온라인 대전 시작!"],over:false,winner:""};
+    }
+    if(this.bgGame==="tichu"){
+      const deck=[];for(const suit of ["♣","♦","♥","♠"])for(let n=2;n<=14;n++)deck.push({suit:suit,n:n});
+      deck.push({suit:"🀄",n:1},{suit:"🐕",n:0},{suit:"🐦",n:15},{suit:"🐉",n:16});this.bgShuffle(deck);
+      return {players:players.map((p,i)=>({...p,team:i%2,hand:deck.splice(0,14)})),turn:0,last:null,passes:0,lastPlayer:0,log:["티츄 온라인 대전 시작! 팀은 번갈아 배정돼요."],over:false,winner:""};
+    }
+    if(this.bgGame==="rummikub"){
+      const deck=[];for(let cp=0;cp<2;cp++)for(const color of ["🔴","🔵","🟠","⚫"])for(let n=1;n<=13;n++)deck.push({id:cp+"-"+color+"-"+n,color:color,n:n});
+      deck.push({id:"j1",color:"🃏",n:0},{id:"j2",color:"🃏",n:0});this.bgShuffle(deck);
+      return {players:players.map(p=>({...p,hand:deck.splice(0,14),opened:false})),pool:deck,table:[],turn:0,log:["루미큐브 온라인 시작! 첫 등록은 30점 이상이에요."],over:false,winner:""};
+    }
+    if(this.bgGame==="lasvegas"){
+      const money=this.bgShuffle([90000,80000,70000,60000,50000,40000,30000,20000,10000]);
+      const casinos=Array.from({length:6},(_,i)=>({num:i+1,bills:[money[(i*2)%money.length],money[(i*2+1)%money.length]],placed:players.map(()=>[])}));
+      return {players:players.map(p=>({...p,dice:Array.from({length:8},()=>1+Math.floor(Math.random()*6)),money:0})),casinos,turn:0,log:["라스베가스 온라인 시작! 주사위 눈에 맞는 카지노를 선택하세요."],over:false,winner:""};
+    }
+    return null;
+  }
+  bgNextTurn(g){
+    for(let k=1;k<=g.players.length;k++){const n=(g.turn+k)%g.players.length;if(g.players[n].alive!==false&&g.players[n].hand?.length!==0&&g.players[n].dice?.length!==0){g.turn=n;return;}}
+    g.turn=(g.turn+1)%g.players.length;
+  }
+  bgValidRummi(ts){
+    if(ts.length<3)return false;const normal=ts.filter(t=>t.color!=="🃏");if(!normal.length)return false;
+    const nums=new Set(normal.map(t=>t.n)),colors=new Set(normal.map(t=>t.color));
+    if(nums.size===1&&colors.size===normal.length&&ts.length<=4)return true;
+    if(colors.size===1){const ns=normal.map(t=>t.n).sort((a,b)=>a-b);if(new Set(ns).size===ns.length&&ns[ns.length-1]-ns[0]+1===ts.length)return true;}
+    return false;
+  }
+  async bgHandleGameAction(player,d){
+    const g=this.bgGameState;if(!g||g.over||this.bgPhase!=="playing")return;
+    const action=String(d.action||""),payload=d.payload&&typeof d.payload==="object"?d.payload:{};
+    if(this.bgGame==="bang"){
+      const pi=g.players.findIndex(x=>x.id===player.id);if(pi<0||pi!==g.turn)return;
+      const p=g.players[pi],ci=Number(payload.cardIndex);if(!Number.isInteger(ci)||ci<0||ci>=p.hand.length)return;
+      const card=p.hand[ci];
+      if(action==="bang_play"){
+        if(card==="bang"){const ti=g.players.findIndex(x=>x.id===String(payload.targetId));if(ti<0||ti===pi||!g.players[ti].alive)return;g.players[ti].hp--;g.log.unshift(p.name+"이(가) "+g.players[ti].name+"에게 뱅!");if(g.players[ti].hp<=0){g.players[ti].alive=false;g.log.unshift(g.players[ti].name+" 탈락!");}}
+        else if(card==="beer")p.hp=Math.min(p.role==="보안관"?5:4,p.hp+1);
+        else if(card==="panic"){const ti=g.players.findIndex(x=>x.id===String(payload.targetId));if(ti>=0&&ti!==pi&&g.players[ti].hand.length)g.players[ti].hand.pop();}
+        else return;
+      }else if(action!=="bang_discard")return;
+      p.hand.splice(ci,1);if(!g.deck.length)g.deck=this.bgShuffle(["bang","bang","miss","beer","panic","bang","miss"]);p.hand.push(g.deck.pop());p.hand.push(g.deck.pop());
+      const sheriff=g.players.find(x=>x.role==="보안관"),outlaws=g.players.filter(x=>x.role==="무법자"&&x.alive);
+      if(!sheriff?.alive){g.over=true;g.winner="무법자 팀";}else if(!outlaws.length){g.over=true;g.winner="보안관 팀";}
+      if(!g.over)this.bgNextTurn(g);else g.log.unshift("🏆 "+g.winner+" 승리!");
+    }else if(this.bgGame==="tichu"){
+      if(g.players[g.turn]?.id!==player.id)return;const p=g.players[g.turn];
+      if(action==="tichu_pass"){if(!g.last)return;g.passes++;g.log.unshift(p.name+" 패스");if(g.passes>=g.players.length-1){g.turn=g.lastPlayer;g.last=null;g.passes=0;}else this.bgNextTurn(g);}
+      else if(action==="tichu_play"){
+        const indices=Array.isArray(payload.indices)?[...new Set(payload.indices.map(Number))].sort((a,b)=>a-b):[];
+        if(!indices.length||indices.some(i=>!Number.isInteger(i)||i<0||i>=p.hand.length))return;
+        const cards=indices.map(i=>p.hand[i]);if(cards.length>1&&!cards.every(c=>c.n===cards[0].n))return;
+        const power=Math.max(...cards.map(c=>c.n));if(g.last&&power<=g.last.power)return;
+        p.hand=p.hand.filter((c,i)=>!indices.includes(i));g.last={power:power,label:cards.map(c=>c.suit+({11:"J",12:"Q",13:"K",14:"A"}[c.n]||c.n)).join(" "),count:cards.length};g.lastPlayer=g.turn;g.passes=0;g.log.unshift(p.name+"이(가) "+g.last.label+" 을(를) 냈어요.");
+        if(!p.hand.length){g.over=true;g.winner="팀 "+(p.team===0?"A":"B");}else this.bgNextTurn(g);
+      }else return;
+    }else if(this.bgGame==="rummikub"){
+      if(g.players[g.turn]?.id!==player.id)return;const p=g.players[g.turn];
+      if(action==="rummikub_draw"){if(g.pool.length)p.hand.push(g.pool.pop());this.bgNextTurn(g);}
+      else if(action==="rummikub_play"){
+        const indices=Array.isArray(payload.indices)?[...new Set(payload.indices.map(Number))].sort((a,b)=>a-b):[];
+        if(indices.length<3||indices.some(i=>!Number.isInteger(i)||i<0||i>=p.hand.length))return;
+        const ts=indices.map(i=>p.hand[i]);if(!this.bgValidRummi(ts))return;
+        if(!p.opened&&ts.reduce((n,t)=>n+(t.n||0),0)<30)return;
+        p.opened=true;g.table.push(ts);p.hand=p.hand.filter((t,i)=>!indices.includes(i));g.log.unshift(p.name+"이(가) 타일 조합을 등록했어요.");
+        if(!p.hand.length){g.over=true;g.winner=p.name;}else this.bgNextTurn(g);
+      }else return;
+    }else if(this.bgGame==="lasvegas"){
+      if(g.players[g.turn]?.id!==player.id)return;const p=g.players[g.turn],num=Number(payload.num);
+      if(action!=="lasvegas_place"||!Number.isInteger(num)||num<1||num>6||!p.dice.includes(num))return;
+      const count=p.dice.filter(v=>v===num).length;p.dice=p.dice.filter(v=>v!==num);g.casinos[num-1].placed[g.turn].push(...Array(count).fill(num));g.log.unshift(p.name+"이(가) 카지노 "+num+"에 주사위 "+count+"개 배치");
+      const next=g.players.findIndex((x,i)=>i!==g.turn&&x.dice.length>0);
+      if(g.players.every(x=>x.dice.length===0)){
+        g.casinos.forEach(c=>{const counts=c.placed.map(a=>a.length),sorted=[...counts].sort((a,b)=>b-a);if(!sorted[0]||sorted[0]===sorted[1])return;const winner=counts.indexOf(sorted[0]),bill=c.bills.shift();if(bill){g.players[winner].money+=bill;g.log.unshift("카지노 "+c.num+" 지폐 "+bill.toLocaleString()+"원: "+g.players[winner].name+" 획득!");}});
+        g.over=true;g.winner=g.players.slice().sort((a,b)=>b.money-a.money)[0].name;g.log.unshift("🏆 최종 승자: "+g.winner);
+      }else if(next>=0)g.turn=next;else g.turn=(g.turn+1)%g.players.length;
+    }else return;
+    this.bgBroadcast();
   }
   async fetchBoardGame(request){
     if(request.headers.get("Upgrade")?.toLowerCase()!=="websocket")return json({ok:true,type:"BoardGameRoom"});
@@ -2098,7 +2202,11 @@ export class GameRoom {
         await this.env.DB.prepare("UPDATE boardgame_rooms SET status='playing' WHERE room_code=?").bind(this.roomCode).run();
         this.bgBroadcast();return;
       }
-      this.bgSend(ws,{type:"notice",text:"이 게임의 온라인 턴 규칙은 아직 연결 중이에요. 방 채팅과 접속 동기화는 사용할 수 있어요."});return;
+      const minimum={bang:4,tichu:4,rummikub:2,lasvegas:2}[this.bgGame]||2;
+      if(people.length<minimum){this.bgSend(ws,{type:"notice",text:this.bgGame+" 게임은 최소 "+minimum+"명이 필요해요."});return;}
+      this.bgGameState=this.bgCreateGameState(people);if(!this.bgGameState){this.bgSend(ws,{type:"notice",text:"이 게임은 온라인 플레이를 지원하지 않아요."});return;}
+      this.bgPhase="playing";this.bgChat.push({id:"system",name:"시스템",text:"게임 시작! 차례와 패는 서버에서 동기화돼요.",at:Date.now()});
+      await this.env.DB.prepare("UPDATE boardgame_rooms SET status='playing' WHERE room_code=?").bind(this.roomCode).run();this.bgBroadcast();return;
     }
     if(d.type==="vote_start"&&this.bgGame==="liar"&&this.bgSecret&&this.bgPhase==="chat"){
       this.bgPhase="vote";this.bgVotes.clear();this.bgChat.push({id:"system",name:"시스템",text:"토론 종료! 라이어를 투표해 주세요.",at:Date.now()});this.bgBroadcast();return;
@@ -2119,11 +2227,7 @@ export class GameRoom {
       }
       this.bgBroadcast();return;
     }
-    if(d.type==="action"){
-      const action=String(d.action||"").slice(0,40);
-      const payload=d.payload&&typeof d.payload==="object"?d.payload:{};
-      this.bgBroadcastAction({type:"game_action",game:this.bgGame,from:player.id,name:player.name,action,payload,at:Date.now()});return;
-    }
+    if(d.type==="action"){await this.bgHandleGameAction(player,d);return;}
   }
   bgBroadcastAction(d){for(const ws of this.bgSockets.keys())this.bgSend(ws,d)}
   async onBoardClose(ws){
