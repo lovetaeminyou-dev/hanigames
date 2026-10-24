@@ -710,3 +710,6 @@ button,input,select{font-family:inherit}
 .navbtn b{font-size:23px;line-height:1.2;margin-bottom:4px}
 .navbtn.active{font-weight:900}
 @media(max-width:380px){.navbtn{font-size:10px}.navbtn b{font-size:21px}}
+
+/* Board game nav and coming-soon cards */
+.arcade-coming{cursor:default;filter:saturate(.88)}.arcade-coming .arcade-play{background:#ffffffcf;color:#7778a4}.bottom-nav{grid-template-columns:repeat(6,minmax(0,1fr))}.navbtn{font-size:11px;white-space:nowrap}.navbtn b{font-size:24px}@media(max-width:380px){.navbtn{font-size:10px}.navbtn b{font-size:22px}}
