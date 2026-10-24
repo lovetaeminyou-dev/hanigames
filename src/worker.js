@@ -2120,7 +2120,7 @@ export class GameRoom {
         else if(card==="panic"){const ti=g.players.findIndex(x=>x.id===String(payload.targetId));if(ti>=0&&ti!==pi&&g.players[ti].hand.length)g.players[ti].hand.pop();}
         else return;
       }else if(action!=="bang_discard")return;
-      p.hand.splice(ci,1);if(!g.deck.length)g.deck=this.bgShuffle(["bang","bang","miss","beer","panic","bang","miss"]);p.hand.push(g.deck.pop());p.hand.push(g.deck.pop());
+      p.hand.splice(ci,1);if(g.deck.length<2)g.deck=this.bgShuffle(["bang","bang","miss","beer","panic","bang","miss","beer"]);p.hand.push(g.deck.pop());p.hand.push(g.deck.pop());
       const sheriff=g.players.find(x=>x.role==="보안관"),outlaws=g.players.filter(x=>x.role==="무법자"&&x.alive);
       if(!sheriff?.alive){g.over=true;g.winner="무법자 팀";}else if(!outlaws.length){g.over=true;g.winner="보안관 팀";}
       if(!g.over)this.bgNextTurn(g);else g.log.unshift("🏆 "+g.winner+" 승리!");
@@ -2150,7 +2150,7 @@ export class GameRoom {
       if(g.players[g.turn]?.id!==player.id)return;const p=g.players[g.turn],num=Number(payload.num);
       if(action!=="lasvegas_place"||!Number.isInteger(num)||num<1||num>6||!p.dice.includes(num))return;
       const count=p.dice.filter(v=>v===num).length;p.dice=p.dice.filter(v=>v!==num);g.casinos[num-1].placed[g.turn].push(...Array(count).fill(num));g.log.unshift(p.name+"이(가) 카지노 "+num+"에 주사위 "+count+"개 배치");
-      const next=g.players.findIndex((x,i)=>i!==g.turn&&x.dice.length>0);
+      let next=-1;for(let step=1;step<=g.players.length;step++){const idx=(g.turn+step)%g.players.length;if(g.players[idx].dice.length>0){next=idx;break;}}
       if(g.players.every(x=>x.dice.length===0)){
         g.casinos.forEach(c=>{const counts=c.placed.map(a=>a.length),sorted=[...counts].sort((a,b)=>b-a);if(!sorted[0]||sorted[0]===sorted[1])return;const winner=counts.indexOf(sorted[0]),bill=c.bills.shift();if(bill){g.players[winner].money+=bill;g.log.unshift("카지노 "+c.num+" 지폐 "+bill.toLocaleString()+"원: "+g.players[winner].name+" 획득!");}});
         g.over=true;g.winner=g.players.slice().sort((a,b)=>b.money-a.money)[0].name;g.log.unshift("🏆 최종 승자: "+g.winner);
