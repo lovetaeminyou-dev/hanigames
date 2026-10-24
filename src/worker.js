@@ -197,12 +197,13 @@ async function getCurrentUser(request, env) {
   await ensureUserNeeds(env);
   const authorization =
     request.headers.get("authorization") || "";
+  let tokenFromHeader = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!tokenFromHeader) {
+    try { tokenFromHeader = new URL(request.url).searchParams.get("token") || ""; } catch {}
+  }
 
-  if (
-    authorization.startsWith("Bearer ")
-  ) {
-    const token =
-      authorization.slice(7);
+  if (tokenFromHeader) {
+    const token = tokenFromHeader;
 
     const data =
       await readToken(token, env);
@@ -1100,6 +1101,50 @@ async function ranking(env) {
    ROOMS
 ========================= */
 
+async function ensureBoardgameTables(env) {
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS boardgame_rooms (room_code TEXT PRIMARY KEY, game TEXT NOT NULL, host_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'waiting', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS boardgame_room_players (room_code TEXT NOT NULL, user_id INTEGER NOT NULL, username TEXT NOT NULL, joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(room_code,user_id))").run();
+}
+async function boardgameRooms(request, env, user) {
+  await ensureBoardgameTables(env);
+  const url = new URL(request.url);
+  if (request.method === "GET") {
+    const game = url.searchParams.get("game");
+    const result = game
+      ? await env.DB.prepare("SELECT r.room_code,r.game,r.host_id,r.status,r.created_at,(SELECT COUNT(*) FROM boardgame_room_players p WHERE p.room_code=r.room_code) AS player_count FROM boardgame_rooms r WHERE r.game=? AND r.status IN ('waiting','playing') ORDER BY r.created_at DESC LIMIT 40").bind(game).all()
+      : await env.DB.prepare("SELECT r.room_code,r.game,r.host_id,r.status,r.created_at,(SELECT COUNT(*) FROM boardgame_room_players p WHERE p.room_code=r.room_code) AS player_count FROM boardgame_rooms r WHERE r.status IN ('waiting','playing') ORDER BY r.created_at DESC LIMIT 40").all();
+    return json({rooms:result.results||[]});
+  }
+  if (request.method === "POST") {
+    const body = await readJson(request);
+    const game = String(body.game||"");
+    const allowed = ["bang","tichu","rummikub","liar","lasvegas"];
+    if (!allowed.includes(game)) return json({error:"지원하지 않는 보드게임입니다."},400);
+    let code = "";
+    for(let i=0;i<12;i++){
+      code=Math.random().toString(36).slice(2,7).toUpperCase();
+      const found=await env.DB.prepare("SELECT room_code FROM boardgame_rooms WHERE room_code=?").bind(code).first();
+      if(!found)break;
+    }
+    await env.DB.prepare("INSERT INTO boardgame_rooms(room_code,game,host_id,status) VALUES(?,?,?,'waiting')").bind(code,game,user.id).run();
+    await env.DB.prepare("INSERT INTO boardgame_room_players(room_code,user_id,username) VALUES(?,?,?)").bind(code,user.id,String(user.username||"하니")).run();
+    return json({room:{room_code:code,game,host_id:user.id,status:"waiting",player_count:1}});
+  }
+  return json({error:"지원하지 않는 요청입니다."},405);
+}
+async function joinBoardgameRoom(request, env, user, code) {
+  await ensureBoardgameTables(env);
+  const room=await env.DB.prepare("SELECT * FROM boardgame_rooms WHERE room_code=?").bind(code).first();
+  if(!room)return json({error:"방 코드를 확인해 주세요."},404);
+  const current=await env.DB.prepare("SELECT user_id FROM boardgame_room_players WHERE room_code=? AND user_id=?").bind(code,user.id).first();
+  if(current)return json({ok:true,room});
+  if(room.status!=="waiting")return json({error:"이미 시작한 방이에요."},409);
+  const count=await env.DB.prepare("SELECT COUNT(*) AS n FROM boardgame_room_players WHERE room_code=?").bind(code).first();
+  const max=room.game==="liar"?8:room.game==="lasvegas"||room.game==="rummikub"?4:4;
+  if(Number(count?.n||0)>=max)return json({error:"방이 가득 찼어요."},409);
+  await env.DB.prepare("INSERT INTO boardgame_room_players(room_code,user_id,username) VALUES(?,?,?)").bind(code,user.id,String(user.username||"하니")).run();
+  return json({ok:true,room,player_count:Number(count?.n||0)+1});
+}
 async function rooms(
   request,
   env,
@@ -1985,10 +2030,11 @@ async function publicNotice(env) {
 ========================================================= */
 
 export class GameRoom {
-  constructor(state,env){this.state=state;this.env=env;this.sockets=new Set();this.players=new Map();this.boards=new Map();this.left=new Map();this.names=new Map();this.started=false;this.finished=false;this.roomCode="";}
+  constructor(state,env){this.state=state;this.env=env;this.sockets=new Set();this.players=new Map();this.boards=new Map();this.left=new Map();this.names=new Map();this.started=false;this.finished=false;this.roomCode="";this.bgSockets=new Map();this.bgReady=new Set();this.bgChat=[];this.bgGame="";this.bgHostId="";this.bgPhase="lobby";this.bgSecret=null;this.bgVotes=new Map();this.bgStartedAt=null;}
   send(ws,d){try{ws.send(JSON.stringify(d))}catch{this.sockets.delete(ws);this.players.delete(ws)}}
   broadcast(d){const m=JSON.stringify(d);for(const ws of this.sockets){try{ws.send(m)}catch{this.sockets.delete(ws);this.players.delete(ws)}}}
   async fetch(request){
+    if(new URL(request.url).searchParams.get("mode")==="boardgame") return this.fetchBoardGame(request);
     if(request.headers.get("Upgrade")?.toLowerCase()!=="websocket")return json({ok:true,type:"GameRoom"});
     const u=new URL(request.url),uid=String(u.searchParams.get("userId")||""),name=String(u.searchParams.get("username")||"하니"),code=String(u.searchParams.get("room")||"");
     if(!uid||!code)return new Response("Missing battle identity",{status:400});
@@ -1996,6 +2042,94 @@ export class GameRoom {
     const pair=new WebSocketPair(),client=pair[0],server=pair[1];server.accept();this.roomCode=code;this.sockets.add(server);this.players.set(server,uid);this.names.set(uid,name);if(!this.left.has(uid))this.left.set(uid,64);
     server.addEventListener("message",e=>this.onMessage(server,e.data));server.addEventListener("close",()=>this.onClose(server));server.addEventListener("error",()=>this.onClose(server));
     this.send(server,{type:"battle_connected",playerId:uid,waiting:this.players.size<2});if(this.players.size===2)await this.startBattle();return new Response(null,{status:101,webSocket:client});
+  }
+  bgSend(ws,d){try{ws.send(JSON.stringify(d))}catch{this.bgSockets.delete(ws)}}
+  bgPublic(){
+    return {type:"room_state",room:this.roomCode,game:this.bgGame,phase:this.bgPhase,hostId:this.bgHostId,players:Array.from(this.bgSockets.values()).map(p=>({id:p.id,name:p.name,ready:this.bgReady.has(p.id),online:true})),chat:this.bgChat.slice(-60),started:!!this.bgSecret};
+  }
+  bgBroadcast(){
+    const base=this.bgPublic();
+    for(const [ws,p] of this.bgSockets){
+      const privateData=this.bgSecret&&this.bgGame==="liar" ? {isLiar:p.id===this.bgSecret.liarId,clue:p.id===this.bgSecret.liarId?this.bgSecret.liarWord:this.bgSecret.word,category:this.bgSecret.category} : null;
+      this.bgSend(ws,{...base,privateData,result:this.bgSecret?.result||null});
+    }
+  }
+  async fetchBoardGame(request){
+    if(request.headers.get("Upgrade")?.toLowerCase()!=="websocket")return json({ok:true,type:"BoardGameRoom"});
+    const u=new URL(request.url),uid=String(u.searchParams.get("userId")||""),name=String(u.searchParams.get("username")||"하니"),code=String(u.searchParams.get("room")||"").toUpperCase();
+    if(!uid||!code)return new Response("Missing boardgame identity",{status:400});
+    await ensureBoardgameTables(this.env);
+    const room=await this.env.DB.prepare("SELECT * FROM boardgame_rooms WHERE room_code=?").bind(code).first();
+    if(!room)return new Response("Room not found",{status:404});
+    const member=await this.env.DB.prepare("SELECT user_id,username FROM boardgame_room_players WHERE room_code=? AND user_id=?").bind(code,Number(uid)).first();
+    if(!member)return new Response("Join the room first",{status:403});
+    const max=room.game==="liar"?8:4;
+    if(this.bgSockets.size>=max&&!Array.from(this.bgSockets.values()).some(p=>p.id===uid))return new Response("Room is full",{status:409});
+    this.roomCode=code;this.bgGame=room.game;this.bgHostId=String(room.host_id);
+    const pair=new WebSocketPair(),client=pair[0],server=pair[1];server.accept();
+    this.bgSockets.set(server,{id:uid,name:String(member.username||name).slice(0,20)});
+    server.addEventListener("message",e=>this.onBoardMessage(server,e.data));
+    server.addEventListener("close",()=>this.onBoardClose(server));
+    server.addEventListener("error",()=>this.onBoardClose(server));
+    this.bgBroadcast();
+    return new Response(null,{status:101,webSocket:client});
+  }
+  async onBoardMessage(ws,raw){
+    const player=this.bgSockets.get(ws);if(!player)return;
+    let d;try{d=JSON.parse(raw)}catch{return}
+    if(d.type==="ready"){
+      if(d.ready)this.bgReady.add(player.id);else this.bgReady.delete(player.id);
+      this.bgBroadcast();return;
+    }
+    if(d.type==="chat"){
+      const text=String(d.text||"").trim().slice(0,200);if(!text)return;
+      this.bgChat.push({id:player.id,name:player.name,text,at:Date.now()});this.bgChat=this.bgChat.slice(-60);
+      this.bgBroadcast();return;
+    }
+    if(d.type==="start"){
+      if(player.id!==this.bgHostId)return;
+      if(this.bgGame==="liar"){
+        const people=Array.from(new Map(Array.from(this.bgSockets.values()).map(p=>[p.id,p])).values());
+        if(people.length<3){this.bgSend(ws,{type:"notice",text:"라이어 게임은 최소 3명이 필요해요."});return;}
+        const words=[["음식","김치찌개","된장찌개"],["동물","기린","코끼리"],["장소","놀이공원","워터파크"],["게임","오버워치","리그 오브 레전드"],["간식","붕어빵","호떡"],["교통","지하철","버스"],["가전","에어컨","선풍기"],["과일","수박","멜론"]];
+        const w=words[Math.floor(Math.random()*words.length)],liar=people[Math.floor(Math.random()*people.length)];
+        this.bgSecret={category:w[0],word:w[1],liarWord:w[2],liarId:liar.id,result:null};
+        this.bgPhase="chat";this.bgVotes.clear();this.bgChat.push({id:"system",name:"시스템",text:"게임 시작! 제시어를 직접 말하지 말고 힌트를 나눠보세요.",at:Date.now()});
+        await this.env.DB.prepare("UPDATE boardgame_rooms SET status='playing' WHERE room_code=?").bind(this.roomCode).run();
+        this.bgBroadcast();return;
+      }
+      this.bgSend(ws,{type:"notice",text:"이 게임의 온라인 턴 규칙은 아직 연결 중이에요. 방 채팅과 접속 동기화는 사용할 수 있어요."});return;
+    }
+    if(d.type==="vote_start"&&this.bgGame==="liar"&&this.bgSecret&&this.bgPhase==="chat"){
+      this.bgPhase="vote";this.bgVotes.clear();this.bgChat.push({id:"system",name:"시스템",text:"토론 종료! 라이어를 투표해 주세요.",at:Date.now()});this.bgBroadcast();return;
+    }
+    if(d.type==="vote"&&this.bgGame==="liar"&&this.bgSecret&&this.bgPhase==="vote"){
+      const target=String(d.target||"");if(!Array.from(this.bgSockets.values()).some(p=>p.id===target)||this.bgVotes.has(player.id))return;
+      this.bgVotes.set(player.id,target);
+      const online=Array.from(new Set(Array.from(this.bgSockets.values()).map(p=>p.id)));
+      if(online.every(id=>this.bgVotes.has(id))){
+        const counts={};for(const targetId of this.bgVotes.values())counts[targetId]=(counts[targetId]||0)+1;
+        const max=Math.max(0,...Object.values(counts));const top=Object.keys(counts).filter(id=>counts[id]===max);
+        const picked=top.length===1?top[0]:null;
+        const pickedName=Array.from(this.bgSockets.values()).find(p=>p.id===picked)?.name||"동점";
+        const liarName=Array.from(this.bgSockets.values()).find(p=>p.id===this.bgSecret.liarId)?.name||"나간 플레이어";
+        this.bgSecret.result={winner:picked===this.bgSecret.liarId?"citizens":"liar",pickedId:picked,pickedName,liarId:this.bgSecret.liarId,liarName,word:this.bgSecret.word,liarWord:this.bgSecret.liarWord,votes:Array.from(this.bgVotes.entries()).map(([from,to])=>({from,to}))};
+        this.bgPhase="result";this.bgChat.push({id:"system",name:"시스템",text:picked===this.bgSecret.liarId?"시민 팀 승리! 라이어를 찾았어요.":"라이어 승리! 정답을 피했어요.",at:Date.now()});
+        await this.env.DB.prepare("UPDATE boardgame_rooms SET status='waiting' WHERE room_code=?").bind(this.roomCode).run();
+      }
+      this.bgBroadcast();return;
+    }
+    if(d.type==="action"){
+      const action=String(d.action||"").slice(0,40);
+      const payload=d.payload&&typeof d.payload==="object"?d.payload:{};
+      this.bgBroadcastAction({type:"game_action",game:this.bgGame,from:player.id,name:player.name,action,payload,at:Date.now()});return;
+    }
+  }
+  bgBroadcastAction(d){for(const ws of this.bgSockets.keys())this.bgSend(ws,d)}
+  async onBoardClose(ws){
+    const p=this.bgSockets.get(ws);if(!p)return;this.bgSockets.delete(ws);this.bgReady.delete(p.id);
+    if(this.bgSockets.size===0){this.bgPhase="lobby";this.bgSecret=null;this.bgVotes.clear();return;}
+    this.bgBroadcast();
   }
   async onMessage(ws,raw){
     let d;try{d=JSON.parse(raw)}catch{return}const uid=this.players.get(ws);if(!uid||this.finished)return;
@@ -2419,6 +2553,26 @@ export default {
         return ranking(
           env
         );
+      }
+
+      /* MULTIPLAYER BOARDGAME ROOMS */
+      if (url.pathname === "/api/boardrooms") {
+        return boardgameRooms(request, env, user);
+      }
+      const boardJoinMatch = url.pathname.match(/^\/api\/boardrooms\/([^/]+)\/join$/);
+      if (boardJoinMatch && request.method === "POST") {
+        return joinBoardgameRoom(request, env, user, boardJoinMatch[1].toUpperCase());
+      }
+      const boardWsMatch = url.pathname.match(/^\/api\/boardrooms\/([^/]+)\/ws$/);
+      if (boardWsMatch && request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
+        const id = env.GameRoom.idFromName("boardgame:" + boardWsMatch[1].toUpperCase());
+        const room = env.GameRoom.get(id);
+        const wsUrl = new URL(request.url);
+        wsUrl.searchParams.set("room", boardWsMatch[1].toUpperCase());
+        wsUrl.searchParams.set("userId", String(user.id));
+        wsUrl.searchParams.set("username", String(user.username || "하니"));
+        wsUrl.searchParams.set("mode", "boardgame");
+        return room.fetch(new Request(wsUrl.toString(), request));
       }
 
       /* ROOMS */
