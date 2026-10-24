@@ -801,7 +801,7 @@ async function gameResult(request, env) {
   // 일반 게임의 점수 보상. 홀덤은 봇 승리 보상 경로만 허용합니다.
   const score=Math.max(0,Math.min(5000,Math.floor(Number(body.score||0))));
   const combo=Math.max(0,Math.min(100,Math.floor(Number(body.combo||0))));
-  const allowed=["shisen","minesweeper","tetris","omok"];
+  const allowed=["tetris","bang","tichu","rummikub","liar","lasvegas"];
   if(!allowed.includes(game)||score<=0)return json({error:"유효하지 않은 게임 결과입니다."},400);
   const reward=Math.min(1500,Math.max(100,Math.floor(score*0.25)));
   const xp=Math.min(100,Math.floor(score/50));
