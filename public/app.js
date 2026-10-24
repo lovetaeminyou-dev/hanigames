@@ -1,7 +1,11 @@
 const GAMES={
-  shisen:{name:"사천성",icon:"🀄",desc:"같은 타일을 두 번 이하로 꺾어 연결해 모두 제거하세요."},
   holdem:{name:"텍사스 홀덤",icon:"♠️",desc:"공용 카드 5장과 내 카드 2장으로 최고의 족보를 만들어 보세요."},
-  mafia:{name:"마피아 게임",icon:"🕵️",desc:"시민들 사이에 숨은 마피아를 찾아 투표로 추방하세요."}
+  mafia:{name:"마피아 게임",icon:"🕵️",desc:"시민들 사이에 숨은 마피아를 찾아 투표로 추방하세요."},
+  bang:{name:"뱅!",icon:"🤠",desc:"역할을 숨기고 살아남는 서부 카드 대전"},
+  tichu:{name:"티츄",icon:"🃏",desc:"4인 팀으로 패를 먼저 털어내는 카드게임"},
+  rummikub:{name:"루미큐브",icon:"🔢",desc:"숫자 타일을 조합해 손패를 비우세요"},
+  liar:{name:"라이어 게임",icon:"🤥",desc:"채팅과 투표로 라이어를 찾아내세요"},
+  lasvegas:{name:"라스베가스",icon:"🎲",desc:"주사위를 카지노에 배치해 가상 지폐를 모으세요"}
 };
 
 let S={
