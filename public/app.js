@@ -602,10 +602,9 @@ async function home(){
     <section class="card" style="padding:12px">
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
         ${choices.map(([id,name,emoji],index)=>`
-          <button class="${id===selected?'primary':'secondary'}" onclick="selectProfileCharacterId('${id}')" style="padding:7px;border-radius:16px;overflow:hidden">
+          <button class="${id===selected?'primary':'secondary'}" onclick="selectProfileCharacterId('${id}')" style="padding:7px;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-start">
             <div class="character-art" data-character-index="${index}" aria-label="${name}" style="display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:80/97;background-position:${(index%4)*100/3}% ${Math.floor(index/4)*50}%;background-size:400% 300%;background-repeat:no-repeat;border-radius:12px;font-size:60px">${emoji}</div>
-            <span style="display:block;padding:7px 0 3px;font-weight:800">${name}</span>
-            ${id===selected?'<small>선택됨 ✓</small>':''}
+            ${id===selected?'<small style="display:block;padding:6px 0 2px;font-weight:900">선택됨 ✓</small>':''}
           </button>`).join("")}
       </div>
     </section>
