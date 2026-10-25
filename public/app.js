@@ -97,8 +97,17 @@ function levelNeed(l){
   return 100+(l-1)*80;
 }
 
-function profileCharacter(){const choices=["🐱","🐰","🦊","🐻","🐼","🐸","🐹","🐯","🐨","🐧","🦄","🐲"];const saved=localStorage.getItem("haniCharacter:"+String(S.user?.username||"guest"));return choices.includes(saved)?saved:"🐱";}
-function selectProfileCharacter(char){const choices=["🐱","🐰","🦊","🐻","🐼","🐸","🐹","🐯","🐨","🐧","🦄","🐲"];if(!choices.includes(char))return;localStorage.setItem("haniCharacter:"+String(S.user?.username||"guest"),char);profile();}
+function profileCharacterId(){
+  const choices=["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"];
+  const saved=localStorage.getItem("haniCharacter:"+String(S.user?.username||"guest"));
+  return choices.includes(saved)?saved:"cat";
+}
+function selectProfileCharacterId(id){
+  const choices=["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"];
+  if(!choices.includes(id))return;
+  localStorage.setItem("haniCharacter:"+String(S.user?.username||"guest"),id);
+  home();
+}
 function bunny(evo){
   return [
     "🐰",
@@ -291,7 +300,7 @@ function shell(body){
 function nav(){
 
   const ns=[
-    ["home","🐰","육성"],
+    ["home","🎨","캐릭터선택"],
     ["games","🎮","게임"],
     ["ranks","🏆","랭킹"],
     ["news","👥","커뮤니티"],
@@ -560,256 +569,28 @@ async function checkAttendance(){
 ========================================================= */
 
 async function home(){
-
-  // 화면은 현재 로그인 정보를 사용해 즉시 그립니다.
-  // /api/me가 느려도 버튼과 하단 메뉴가 멈추지 않도록 합니다.
   const u=S.user;
-  if(!u){
-    return logout();
-  }
-
-  // 최신 포인트/레벨 정보는 백그라운드에서 갱신합니다.
-  if(!window.__homeRefreshPending){
-    window.__homeRefreshPending=true;
-    api("/api/me").then(d=>{
-      if(d.user) S.user=d.user;
-    }).catch(()=>{}).finally(()=>{
-      window.__homeRefreshPending=false;
-    });
-  }
-
-  const need=
-    levelNeed(
-      u.level
-    );
-
-  const pct=
-    Math.min(
-      100,
-      Math.round(
-        u.xp/need*100
-      )
-    );
-
-  $("#app").innerHTML=
-    shell(`
-
-
-      <section class="card" style="padding:16px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div>
-          <div style="font-weight:950;font-size:18px">📅 오늘 출석체크</div>
-          <div class="muted" style="margin-top:4px">매일 출석하고 포인트를 받아요!</div>
-        </div>
-        <button class="primary" style="white-space:nowrap;font-size:15px;padding:11px 14px" onclick="checkAttendance()">출석하기</button>
-      </section>
-      <section class="card" style="padding:16px;margin-top:12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <div><div style="font-weight:950;font-size:18px">🎯 오늘의 미션</div>
-          <div class="muted" style="margin-top:4px">게임을 플레이하고 공통 포인트를 받아요.</div></div>
-          <button class="pill" onclick="renderDailyMissions()">새로고침</button>
-        </div>
-        <div id="daily-missions" style="margin-top:12px"><div class="muted">미션을 불러오는 중…</div></div>
-      </section>
-
-      <section class="card hero">
-
-        <div class="hero-main">
-
-          <div class="bunny-box">
-            <div class="bunny">
-              ${profileCharacter()}
-            </div>
-          </div>
-
-          <div>
-
-            <div class="eyebrow">
-              토끼콩 ·
-              ${u.evolution+1}세대
-            </div>
-
-            <div class="name">
-              💎 ${esc(u.username)}
-            </div>
-
-            <div class="tagrow">
-
-              <span class="tag">
-                Lv.${u.level}
-              </span>
-
-              <span class="tag">
-                ✨ ${esc(u.title)}
-              </span>
-
-              <span class="tag">
-                전적
-                ${u.wins}승
-                ${u.losses}패
-              </span>
-
-            </div>
-
-            <p class="muted">
-              게임하고 레벨을 올려서 새로운 하니를 만나봐요!
-            </p>
-
-          </div>
-
-        </div>
-
-        <div class="stats">
-
-          <div class="stat">
-            <small>포인트</small>
-            <strong>
-              ${u.points.toLocaleString()}P
-            </strong>
-          </div>
-
-          <div class="stat">
-            <small>레벨</small>
-            <strong>
-              Lv.${u.level}
-            </strong>
-          </div>
-
-          <div class="stat">
-            <small>진화 단계</small>
-            <strong>${haniStage(u.level).stage}/10</strong>
-          </div>
-
-          <div class="stat">
-            <small>전적</small>
-            <strong>${u.wins}승 ${u.losses}패</strong>
-          </div>
-
-        </div>
-
-        <div
-          style="
-            margin-top:16px;
-            font-weight:850
-          "
-        >
-
-          Lv.${u.level+1}까지
-          ${Math.max(
-            0,
-            need-u.xp
-          )} XP 남음
-
-          <span style="float:right">
-            ${u.xp} / ${need}
-          </span>
-
-        </div>
-
-        <div class="progress">
-          <i
-            style="width:${pct}%"
-          ></i>
-        </div>
-
-      </section>
-
-
-      <div class="hani-home-actions">
-        <button class="primary" onclick="renderEvolution()">🐰 진화 도감 보기</button>
-        <button class="secondary" onclick="renderCloset()">👑 토끼 꾸미기</button>
+  if(!u) return logout();
+  const choices=[
+    ["cat","고양이"],["rabbit","토끼"],["fox","여우"],["bear","곰"],
+    ["panda","판다"],["frog","개구리"],["mouse","생쥐"],["tiger","호랑이"],
+    ["koala","코알라"],["penguin","펭귄"],["unicorn","유니콘"],["dragon","용"]
+  ];
+  const selected=profileCharacterId();
+  $("#app").innerHTML=shell(`
+    <div class="section-title">캐릭터 선택</div>
+    <p class="muted" style="margin:0 0 14px">마음에 드는 캐릭터를 골라 프로필에 표시해요 💙</p>
+    <section class="card" style="padding:12px">
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+        ${choices.map(([id,name])=>`
+          <button class="${id===selected?'primary':'secondary'}" onclick="selectProfileCharacterId('${id}')" style="padding:7px;border-radius:16px;overflow:hidden">
+            <img src="/assets/characters/${id}.webp" alt="${name}" loading="lazy" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:12px;display:block">
+            <span style="display:block;padding:7px 0 3px;font-weight:800">${name}</span>
+            ${id===selected?'<small>선택됨 ✓</small>':''}
+          </button>`).join("")}
       </div>
-      <section class="card hani-growth-promo">
-        <div class="hani-promo-emoji">✨🐰✨</div>
-        <div><strong>오늘도 하니와 함께 성장!</strong><p class="muted">게임을 플레이하고 경험치와 포인트를 모아보세요. 밥 주기 같은 숙제는 없어도 괜찮아요.</p></div>
-        <button class="primary" onclick="go('games')">게임하러 가기</button>
-      </section>
-      <div class="section-title">
-        오늘의 하니력
-      </div>
-
-      <div class="section-sub">
-        생활과 게임을 하면서
-        기록을 채워보세요.
-      </div>
-
-
-      <div
-        class="card"
-        style="padding:14px"
-      >
-
-        <div class="stats">
-
-          ${
-            [
-              "생활 행동",
-              "개인게임",
-              "오목게임",
-              "사천성",
-              "테트리스",
-              "지뢰찾기"
-            ]
-            .map(
-              (x,i)=>`
-
-                <div class="stat">
-
-                  <small>
-                    ${x}
-                  </small>
-
-                  <strong>
-                    ${
-                      i<2
-                      ?"0/3"
-                      :"미완료"
-                    }
-                  </strong>
-
-                </div>
-
-              `
-            )
-            .join("")
-          }
-
-        </div>
-
-      </div>
-
-
-      <div class="section-title">👉 콕 찌르기</div>
-      <section class="card" style="padding:14px;margin-bottom:18px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <div class="muted" style="font-size:13px">접속 중인 사람에게 인사해 봐요!</div>
-          <button class="pill" onclick="renderPokePanel()">새로고침</button>
-        </div>
-        <div id="poke-panel" style="margin-top:10px"><div class="muted">사용자 목록을 불러오는 중…</div></div>
-      </section>
-      <div class="section-title">🏆 실시간 랭킹 TOP 3</div>
-      <section class="card" style="padding:14px;margin-bottom:18px">
-        <div id="home-ranking"><div class="muted">순위를 불러오는 중…</div></div>
-        <button class="secondary full" style="margin-top:10px" onclick="go('ranks')">전체 랭킹 보기 →</button>
-      </section>
-      <div class="section-title">
-        최근 소식
-      </div>
-
-      <div class="card news">
-
-        ${
-          newsItems()
-            .slice(0,4)
-            .map(newsRow)
-            .join("")
-        }
-
-      </div>
-
-    `);
-  renderDailyMissions();
-  renderPokePanel();
-  renderHomeRanking();
+    </section>
+  `);
 }
 async function renderDailyMissions(){
  const container=document.querySelector("#daily-missions");
@@ -1405,16 +1186,19 @@ async function news(){
 ========================================================= */
 
 async function profile(){
-  const u=S.user, choices=["🐱","🐰","🦊","🐻","🐼","🐸","🐹","🐯","🐨","🐧","🦄","🐲"], selected=profileCharacter();
+  const u=S.user;
+  const selected=profileCharacterId();
+  const names={cat:"고양이",rabbit:"토끼",fox:"여우",bear:"곰",panda:"판다",frog:"개구리",mouse:"생쥐",tiger:"호랑이",koala:"코알라",penguin:"펭귄",unicorn:"유니콘",dragon:"용"};
   $("#app").innerHTML=shell(`
-    <div class="section-title">내 프로필</div>
+    <div class="section-title">내 기록</div>
     <section class="card" style="padding:20px;text-align:center">
-      <div style="font-size:76px;line-height:1.2">${selected}</div><h2>${esc(u.username)}</h2><p class="muted">${esc(u.title||"하니게임즈 회원")}</p>
-      <div class="section-title" style="text-align:left">캐릭터 선택</div><p class="muted" style="text-align:left">마음에 드는 캐릭터를 골라 프로필에 표시해요.</p>
-      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
-        ${choices.map(ch=>'<button class="'+(ch===selected?'primary':'secondary')+'" style="font-size:30px;padding:10px 4px" onclick="selectProfileCharacter(this.textContent)">'+ch+'</button>').join("")}
+      <img src="/assets/characters/${selected}.webp" alt="${names[selected]}" style="width:112px;aspect-ratio:3/4;object-fit:cover;border-radius:18px">
+      <h2>${esc(u.username)}</h2><p class="muted">${esc(names[selected])} 캐릭터</p>
+      <div class="stats" style="margin-top:18px">
+        <div class="stat"><small>승리</small><strong>${u.wins??0}</strong></div>
+        <div class="stat"><small>패배</small><strong>${u.losses??0}</strong></div>
+        <div class="stat"><small>포인트</small><strong>${Number(u.points||0).toLocaleString()}</strong></div>
       </div>
-      <div class="stats" style="margin-top:18px"><div class="stat"><small>승리</small><strong>${u.wins}</strong></div><div class="stat"><small>패배</small><strong>${u.losses}</strong></div><div class="stat"><small>포인트</small><strong>${u.points.toLocaleString()}</strong></div><div class="stat"><small>진화</small><strong>${u.evolution}단계</strong></div></div>
     </section>
     <div class="section-title">계정</div><button class="secondary full" onclick="logout()">로그아웃</button>
   `);
