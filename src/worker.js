@@ -2203,8 +2203,8 @@ export class GameRoom {
     }
     if(d.type==="start"){
       if(player.id!==this.bgHostId)return;
+      const people=Array.from(new Map(Array.from(this.bgSockets.values()).map(p=>[p.id,p])).values());
       if(this.bgGame==="liar"){
-        const people=Array.from(new Map(Array.from(this.bgSockets.values()).map(p=>[p.id,p])).values());
         if(people.length<3){this.bgSend(ws,{type:"notice",text:"라이어 게임은 최소 3명이 필요해요."});return;}
         const words=[["음식","김치찌개","된장찌개"],["동물","기린","코끼리"],["장소","놀이공원","워터파크"],["게임","오버워치","리그 오브 레전드"],["간식","붕어빵","호떡"],["교통","지하철","버스"],["가전","에어컨","선풍기"],["과일","수박","멜론"]];
         const w=words[Math.floor(Math.random()*words.length)],liar=people[Math.floor(Math.random()*people.length)];
