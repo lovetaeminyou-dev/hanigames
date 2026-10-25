@@ -285,7 +285,7 @@ function shell(body){
       <header class="topbar">
 
         <div class="brand">
-          <span class="logo">🐰</span>
+          <span class="logo">🎲</span>
           송이보드게임
         </div>
 
