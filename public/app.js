@@ -8,7 +8,7 @@ const GAMES={
 
 let S={
   user:null,
-  tab:"home",
+  tab:"games",
   modal:null,
   rooms:{},
   game:null
@@ -460,7 +460,7 @@ async function login(){
       d.token
     );
 
-    S.tab="home";
+    S.tab="games";
 
     render();
 
@@ -516,7 +516,7 @@ async function register(){
       d.token
     );
 
-    S.tab="home";
+    S.tab="games";
 
     render();
 
