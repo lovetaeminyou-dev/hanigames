@@ -1,6 +1,4 @@
 const GAMES={
-  holdem:{name:"텍사스 홀덤",icon:"♠️",desc:"공용 카드 5장과 내 카드 2장으로 최고의 족보를 만들어 보세요."},
-  mafia:{name:"마피아 게임",icon:"🕵️",desc:"시민들 사이에 숨은 마피아를 찾아 투표로 추방하세요."},
   bang:{name:"뱅!",icon:"🤠",desc:"역할을 숨기고 살아남는 서부 카드 대전"},
   tichu:{name:"티츄",icon:"🃏",desc:"4인 팀으로 패를 먼저 털어내는 카드게임"},
   rummikub:{name:"루미큐브",icon:"🔢",desc:"숫자 타일을 조합해 손패를 비우세요"},
@@ -99,6 +97,8 @@ function levelNeed(l){
   return 100+(l-1)*80;
 }
 
+function profileCharacter(){const choices=["🐱","🐰","🦊","🐻","🐼","🐸","🐹","🐯","🐨","🐧","🦄","🐲"];const saved=localStorage.getItem("haniCharacter:"+String(S.user?.username||"guest"));return choices.includes(saved)?saved:"🐱";}
+function selectProfileCharacter(char){const choices=["🐱","🐰","🦊","🐻","🐼","🐸","🐹","🐯","🐨","🐧","🦄","🐲"];if(!choices.includes(char))return;localStorage.setItem("haniCharacter:"+String(S.user?.username||"guest"),char);profile();}
 function bunny(evo){
   return [
     "🐰",
@@ -617,7 +617,7 @@ async function home(){
 
           <div class="bunny-box">
             <div class="bunny">
-              ${bunny(u.evolution)}
+              ${profileCharacter()}
             </div>
           </div>
 
@@ -958,17 +958,15 @@ async function doAction(a){
 ========================================================= */
 
 async function games(){
- let rooms=[];try{const d=await api("/api/rooms?game=holdem");rooms=d.rooms||[]}catch{}
- const stakes=[500,1000,5000];
  $("#app").innerHTML=shell(`
- <section class="arcade-hero"><div class="arcade-orbit">✦ HANI BOARD GAME CLUB ✦</div><h1>보드게임 테이블</h1><p>친구들과 모여 한 판! 새로운 게임도 계속 추가할게요.</p><div class="arcade-hero-badges"><span>🃏 카드게임</span><span>🤖 봇 대전</span><span>👥 멀티플레이</span></div></section>
- <div class="section-title">🎲 지금 플레이</div><div class="section-sub">바로 플레이할 수 있는 게임</div>
- <div class="arcade-game-grid">${arcadeCard("rps","✊","가위바위보","봇과 3판 승부","linear-gradient(145deg,#dff7ff,#9cbaff)")}${arcadeCard("wordchain","가","끝말잇기 대전","단어를 이어 봇을 이겨봐요","linear-gradient(145deg,#ffe8f4,#c7b5ff)")}${gameCard("mafia",GAMES.mafia)}${gameCard("holdem",GAMES.holdem)}${arcadeComingCard("💥","뱅!","역할을 숨기고 살아남는 서부 카드게임","곧 추가","linear-gradient(145deg,#ffe5d9,#ffc5bc)")}${arcadeComingCard("🃏","티츄","팀워크와 전략이 중요한 카드게임","곧 추가","linear-gradient(145deg,#e3fff2,#a9e7d4)")}</div>
- <section class="arcade-feature-card"><div class="arcade-feature-icon">♠️</div><div class="arcade-feature-copy"><b>홀덤 테이블</b><p>친구들과 하거나 봇과 연습할 수 있어요.</p></div><select id="holdem-stake" class="input arcade-stake" aria-label="참가 포인트">${stakes.map(n=>'<option value="'+n+'">'+n.toLocaleString()+' P</option>').join("")}</select><button class="primary" onclick="window.createHoldemRoom()">방 만들기</button><button class="secondary" onclick="window.startGame('holdem')">봇과 연습</button></section>
- <div class="section-title">🌐 열린 홀덤 방</div><div id="holdem-room-list" class="arcade-room-list">${rooms.filter(r=>r.status==="waiting"||r.status==="ready").map(r=>'<div class="card room"><div><b>♠️ '+esc(r.room_code)+'</b><p>'+Number(r.stake).toLocaleString()+' P · '+(r.status==="waiting"?"대기 중":"상대 입장")+'</p></div><button class="secondary" onclick="window.joinHoldemRoom(\''+esc(r.room_code)+'\')">참가</button></div>').join("")||'<div class="card arcade-empty">아직 열린 방이 없어요. 첫 번째 방을 만들어봐요!</div>'}</div>`);
+ <section class="arcade-hero"><div class="arcade-orbit">✦ HANI BOARD GAME CLUB ✦</div><h1>하니 보드게임</h1><p>친구들과 모여 한 판! 방 코드를 공유해 실시간으로 대결해요.</p><div class="arcade-hero-badges"><span>🃏 카드게임</span><span>🎲 주사위</span><span>👥 온라인 대전</span></div></section>
+ <div class="section-title">🎮 지금 플레이</div><div class="section-sub">봇 연습 또는 친구와 실시간 대전</div>
+ <div class="arcade-game-grid">${arcadeCard("rps","✊","가위바위보","봇과 3판 승부","linear-gradient(145deg,#dff7ff,#9cbaff)")}${arcadeCard("wordchain","가","끝말잇기 대전","친구와 실시간 끝말잇기","linear-gradient(145deg,#ffe8f4,#c7b5ff)")}${arcadeCard("bang","🤠","뱅!","역할을 숨기고 살아남는 카드게임","linear-gradient(145deg,#ffe5d9,#ffc5bc)")}${arcadeCard("tichu","🃏","티츄","4인 팀 카드게임","linear-gradient(145deg,#e3fff2,#a9e7d4)")}${arcadeCard("rummikub","🔢","루미큐브","숫자 타일 조합 게임","linear-gradient(145deg,#fff1bd,#ffd88a)")}${arcadeCard("liar","🤥","라이어 게임","대화와 투표로 라이어 찾기","linear-gradient(145deg,#eee5ff,#c6b6ff)")}${arcadeCard("lasvegas","🎲","라스베가스","주사위 배치 전략 게임","linear-gradient(145deg,#d9f6ff,#8edbe8)")}</div>
+ <section class="card" style="padding:14px;margin-top:16px"><h3 style="margin-top:0">🔑 친구 방 코드로 참가</h3><p class="muted">친구에게 받은 방 코드를 입력해 주세요.</p><div style="display:flex;gap:8px"><input id="boardroom-code" class="input" maxlength="8" placeholder="예: A1B2C" style="text-transform:uppercase;min-width:0;flex:1"><button class="primary" onclick="window.joinBoardRoom()">참가</button></div></section>
+ `);
 }
 function arcadeComingCard(icon,title,desc,status,bg){return '<article class="arcade-tile arcade-coming" style="--tile-bg:'+bg+'" aria-label="'+title+' 준비 중"><div class="arcade-tile-art">'+icon+'</div><div class="arcade-tile-copy"><b>'+title+'</b><span>'+desc+'</span></div><span class="arcade-play">'+status+'</span></article>';}
-function arcadeCard(id,icon,title,desc,bg){const online=["bang","tichu","rummikub","liar","lasvegas"].includes(id)?'<button class="secondary" style="margin-top:8px;padding:7px 10px;font-size:12px" onclick="event.stopPropagation();window.createBoardRoom(\''+id+'\')">친구와 온라인</button>':"";return `<article class="arcade-tile" style="--tile-bg:${bg}" onclick="window.startGame('${id}')"><div class="arcade-tile-art">${icon}</div><div class="arcade-tile-copy"><b>${title}</b><span>${desc}</span></div><span class="arcade-play">PLAY ↗</span>${online}</article>`;}
+function arcadeCard(id,icon,title,desc,bg){const online=["wordchain","bang","tichu","rummikub","liar","lasvegas"].includes(id)?'<button class="secondary" style="margin-top:8px;padding:7px 10px;font-size:12px" onclick="event.stopPropagation();window.createBoardRoom(\''+id+'\')">친구와 온라인</button>':"";return `<article class="arcade-tile" style="--tile-bg:${bg}" onclick="window.startGame('${id}')"><div class="arcade-tile-art">${icon}</div><div class="arcade-tile-copy"><b>${title}</b><span>${desc}</span></div><span class="arcade-play">PLAY ↗</span>${online}</article>`;}
 window.createHoldemRoom=async function(){
   const stake=Number(document.querySelector("#holdem-stake")?.value||100);
   try{
@@ -1407,84 +1405,20 @@ async function news(){
 ========================================================= */
 
 async function profile(){
-
-  const u=S.user;
-
-  $("#app").innerHTML=
-    shell(`
-
-      <div class="section-title">
-        내 기록
+  const u=S.user, choices=["🐱","🐰","🦊","🐻","🐼","🐸","🐹","🐯","🐨","🐧","🦄","🐲"], selected=profileCharacter();
+  $("#app").innerHTML=shell(`
+    <div class="section-title">내 프로필</div>
+    <section class="card" style="padding:20px;text-align:center">
+      <div style="font-size:76px;line-height:1.2">${selected}</div><h2>${esc(u.username)}</h2><p class="muted">${esc(u.title||"하니게임즈 회원")}</p>
+      <div class="section-title" style="text-align:left">캐릭터 선택</div><p class="muted" style="text-align:left">마음에 드는 캐릭터를 골라 프로필에 표시해요.</p>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+        ${choices.map(ch=>'<button class="'+(ch===selected?'primary':'secondary')+'" style="font-size:30px;padding:10px 4px" onclick="selectProfileCharacter(\\''+ch+'\\')">'+ch+'</button>').join("")}
       </div>
-
-      <div
-        class="card"
-        style="padding:20px"
-      >
-
-        <div
-          class="center"
-          style="font-size:70px"
-        >
-          ${bunny(u.evolution)}
-        </div>
-
-        <h2 class="center">
-          ${esc(u.username)}
-        </h2>
-
-        <p class="center muted">
-          ${esc(u.title)}
-          ·
-          ${u.evolution+1}세대
-        </p>
-
-
-        <div class="stats">
-
-          <div class="stat">
-            <small>승리</small>
-            <strong>${u.wins}</strong>
-          </div>
-
-          <div class="stat">
-            <small>패배</small>
-            <strong>${u.losses}</strong>
-          </div>
-
-          <div class="stat">
-            <small>포인트</small>
-            <strong>
-              ${u.points.toLocaleString()}
-            </strong>
-          </div>
-
-          <div class="stat">
-            <small>진화</small>
-            <strong>
-              ${u.evolution}단계
-            </strong>
-          </div>
-
-        </div>
-
-      </div>
-
-
-      <div class="section-title">
-        계정
-      </div>
-
-      <button
-        class="secondary full"
-        onclick="logout()"
-      >
-        로그아웃
-      </button>
-
-    `);
+      <div class="stats" style="margin-top:18px"><div class="stat"><small>승리</small><strong>${u.wins}</strong></div><div class="stat"><small>패배</small><strong>${u.losses}</strong></div><div class="stat"><small>포인트</small><strong>${u.points.toLocaleString()}</strong></div><div class="stat"><small>진화</small><strong>${u.evolution}단계</strong></div></div>
+    </section>
+    <div class="section-title">계정</div><button class="secondary full" onclick="logout()">로그아웃</button>
+  `);
 }
-
 
 /* =========================================================
    MODAL
@@ -1590,8 +1524,7 @@ function startGame(type){
   if(type==="rps") return rpsGame();
   if(type==="wordchain") return wordChainGame();
   if(type==="shisen") return shisen();
-  if(type==="holdem") return holdem();
-  if(type==="mafia") return mafia();
+  if(type==="holdem"||type==="mafia"){toast("이 게임은 게임 목록에서 제외됐어요.");return;}
   toast("게임을 불러오지 못했어요.");
 }
 window.startGame=startGame;
@@ -1636,9 +1569,10 @@ function gamePage(
 function rpsGame(){
  let round=0,score=0,botScore=0,history=[];const icons={rock:"✊",paper:"✋",scissors:"✌️"},labels={rock:"바위",paper:"보",scissors:"가위"};
  function render(result="봇과 3판 승부! 하나를 골라주세요."){$("#app").innerHTML=shell(gamePage("✊ 가위바위보",`<section class="mini-game-hero"><div class="mini-game-big">✊ ✋ ✌️</div><h2>가위바위보 대전</h2><p>먼저 2승을 하면 승리예요.</p><div class="tag">내 점수 ${score} : ${botScore} 봇</div></section><div class="mini-game-choices">${Object.keys(icons).map(k=>'<button class="mini-game-choice" onclick="window.rpsPick(\''+k+'\')">'+icons[k]+'<span>'+labels[k]+'</span></button>').join("")}</div><div class="mini-game-result">${esc(result)}</div><div class="wordchain-history">${history.map(x=>'<div class="wordchain-line">'+esc(x)+'</div>').join("")}</div>${round>=3||score===2||botScore===2?'<button class="primary" style="width:100%" onclick="window.startGame(\'rps\')">다시 하기 🔄</button>':""}`));}
- window.rpsPick=pick=>{if(round>=3||score===2||botScore===2)return;const choices=Object.keys(icons),bot=choices[Math.floor(Math.random()*3)];round++;let msg;if(pick===bot)msg="비겼어요!";else if((pick==="rock"&&bot==="scissors")||(pick==="paper"&&bot==="rock")||(pick==="scissors"&&bot==="paper")){score++;msg="이번 판 승리!";}else{botScore++;msg="봇이 이겼어요!";}history.unshift("Round "+round+" · 나 "+labels[pick]+" vs 봇 "+labels[bot]+" — "+msg);if(score===2)msg+=" 🎉 최종 승리!";else if(botScore===2)msg+=" 다음엔 이겨봐요!";render(msg);};render();
+ window.rpsPick=pick=>{if(round>=3||score===2||botScore===2)return;const choices=Object.keys(icons),bot=choices[Math.floor(Math.random()*3)];round++;let msg;if(pick===bot)msg="비겼어요!";else if((pick==="rock"&&bot==="scissors")||(pick==="paper"&&bot==="rock")||(pick==="scissors"&&bot==="paper")){score++;msg="이번 판 승리!";}else{botScore++;msg="봇이 이겼어요!";}history.unshift("🎴 나 "+icons[pick]+" "+labels[pick]+"　 VS　상대 "+icons[bot]+" "+labels[bot]+" — "+msg);if(score===2)msg+=" 🎉 최종 승리!";else if(botScore===2)msg+=" 다음엔 이겨봐요!";render(msg);};render();
 }
 function wordChainGame(){
+ if(window.createBoardRoom)return window.createBoardRoom("wordchain");
  const words=["사과","과자","자동차","차표","표범","범고래","래퍼","퍼즐","즐거움","음악","악어","어부","부엌","억울","울타리","리본","본능","능력","역사","사자","자전거","거울","울음","음료수","수박","박수","수영","영화","화분","분홍","홍차","차돌","돌고래","안경","경찰","찰떡","떡볶이","이불","불꽃","꽃병","병아리","리듬","직업","업무","무지개","개나리","리더","더위","위로","로봇","물고기","기차","차례","예절","절구","구름"];
  let current="시작",used=[],turns=0,done=false,history=[{name:"하니봇",word:"시작",me:false}];
  function render(message="마지막 글자로 시작하는 단어를 입력해요."){$("#app").innerHTML=shell(gamePage("🔤 끝말잇기 대전",`<section class="mini-game-hero"><div class="mini-game-big">🔤</div><h2>끝말잇기 대전</h2><p>이미 나온 단어는 사용할 수 없어요.</p><div class="wordchain-word">이어갈 글자: ${esc(current.slice(-1))}</div></section><div class="mini-game-result">${esc(message)}</div><div class="wordchain-history">${history.slice().reverse().map(x=>'<div class="wordchain-line '+(x.me?'me':'')+'"><b>'+esc(x.name)+'</b>　'+esc(x.word)+'</div>').join("")}</div>${!done?'<form onsubmit="event.preventDefault();window.wordChainSubmit()"><div class="mafia-chat-form"><input id="wordchain-input" maxlength="12" autocomplete="off" placeholder="단어 입력" required><button class="primary" type="submit">입력</button></div></form>':'<button class="primary" style="width:100%" onclick="window.startGame(\'wordchain\')">다시 하기 🔄</button>'}<p class="muted" style="font-size:12px;margin-top:10px">단어 수: ${used.length}</p>`));}
