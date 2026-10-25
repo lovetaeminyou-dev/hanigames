@@ -97,6 +97,25 @@ function levelNeed(l){
   return 100+(l-1)*80;
 }
 
+async function loadCharacterSprite(){
+  if(window.__haniCharacterSpriteLoading)return window.__haniCharacterSpriteLoading;
+  window.__haniCharacterSpriteLoading=(async()=>{
+    try{
+      const response=await fetch("/assets/characters/character-sheet.b64");
+      if(!response.ok)throw Error("캐릭터 이미지 파일을 불러오지 못했어요");
+      const encoded=(await response.text()).trim();
+      if(!encoded.startsWith("UklGR"))throw Error("캐릭터 이미지 데이터가 올바르지 않아요");
+      const url='url("data:image/webp;base64,'+encoded+'")';
+      document.querySelectorAll(".character-art[data-character-index]").forEach(el=>{
+        const index=Number(el.dataset.characterIndex);
+        if(!Number.isInteger(index)||index<0||index>11)return;
+        el.style.backgroundImage=url;
+        el.textContent="";
+      });
+    }catch(error){console.warn("Character sprite:",error);}
+  })();
+  return window.__haniCharacterSpriteLoading;
+}
 function profileCharacterId(){
   const choices=["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"];
   const saved=localStorage.getItem("haniCharacter:"+String(S.user?.username||"guest"));
@@ -582,16 +601,16 @@ async function home(){
     <p class="muted" style="margin:0 0 14px">마음에 드는 캐릭터를 골라 프로필에 표시해요 💙</p>
     <section class="card" style="padding:12px">
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
-        ${choices.map(([id,name,emoji])=>`
+        ${choices.map(([id,name,emoji],index)=>`
           <button class="${id===selected?'primary':'secondary'}" onclick="selectProfileCharacterId('${id}')" style="padding:7px;border-radius:16px;overflow:hidden">
-            <img src="/assets/characters/${id}.webp" alt="${name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" style="width:100%;aspect-ratio:3/4;object-fit:contain;border-radius:12px;display:block">
-            <span aria-hidden="true" style="display:none;align-items:center;justify-content:center;font-size:72px;aspect-ratio:3/4">${emoji}</span>
+            <div class="character-art" data-character-index="${index}" aria-label="${name}" style="display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:80/97;background-position:${(index%4)*100/3}% ${Math.floor(index/4)*50}%;background-size:400% 300%;background-repeat:no-repeat;border-radius:12px;font-size:60px">${emoji}</div>
             <span style="display:block;padding:7px 0 3px;font-weight:800">${name}</span>
             ${id===selected?'<small>선택됨 ✓</small>':''}
           </button>`).join("")}
       </div>
     </section>
   `);
+  loadCharacterSprite();
 }
 async function renderDailyMissions(){
  const container=document.querySelector("#daily-missions");
@@ -1194,7 +1213,7 @@ async function profile(){
   $("#app").innerHTML=shell(`
     <div class="section-title">내 기록</div>
     <section class="card" style="padding:20px;text-align:center">
-      <img src="/assets/characters/${selected}.webp" alt="${names[selected]}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" style="width:112px;aspect-ratio:3/4;object-fit:contain;border-radius:18px"><div style="display:none;font-size:76px">${emojis[selected]}</div>
+      <div class="character-art" data-character-index="${["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"].indexOf(selected)}" aria-label="${names[selected]}" style="width:112px;aspect-ratio:80/97;margin:auto;background-position:${(["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"].indexOf(selected)%4)*100/3}% ${Math.floor(["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"].indexOf(selected)/4)*50}%;background-size:400% 300%;background-repeat:no-repeat;font-size:76px">${emojis[selected]}</div>
       <h2>${esc(u.username)}</h2><p class="muted">${esc(names[selected])} 캐릭터</p>
       <div class="stats" style="margin-top:18px">
         <div class="stat"><small>승리</small><strong>${u.wins??0}</strong></div>
@@ -1204,6 +1223,7 @@ async function profile(){
     </section>
     <div class="section-title">계정</div><button class="secondary full" onclick="logout()">로그아웃</button>
   `);
+  loadCharacterSprite();
 }
 
 /* =========================================================
