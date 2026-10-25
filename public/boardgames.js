@@ -1,6 +1,7 @@
 /* HANI BOARD GAMES: local practice prototypes */
 (function(){
   const names={
+    wordchain:{name:"끝말잇기 대전",icon:"가",desc:"친구와 실시간으로 단어를 이어가요"},
     bang:{name:'뱅!',icon:'🤠',desc:'역할을 숨기고 살아남는 서부 카드 대전'},
     tichu:{name:'티츄',icon:'🃏',desc:'4인 팀으로 패를 먼저 털어내는 카드게임'},
     rummikub:{name:'루미큐브',icon:'🔢',desc:'숫자 타일을 조합해 손패를 비우세요'},
@@ -20,21 +21,14 @@
     return oldStart(type);
   };
   window.haniBoardGamesLobby=async function(){
-    let rooms=[];
-    try{const d=await api('/api/rooms?game=holdem');rooms=d.rooms||[]}catch(e){}
-    const stakes=[500,1000,5000];
-    const tiles=[
+        const tiles=[
       arcadeCard('rps','✊','가위바위보','봇과 3판 승부','linear-gradient(145deg,#dff7ff,#9cbaff)'),
       arcadeCard('wordchain','가','끝말잇기 대전','단어를 이어 봇을 이겨봐요','linear-gradient(145deg,#ffe8f4,#c7b5ff)'),
-      gameCard('mafia',GAMES.mafia),
-      gameCard('holdem',GAMES.holdem),
       ...Object.keys(names).map((id,i)=>arcadeCard(id,names[id].icon,names[id].name,names[id].desc,['linear-gradient(145deg,#ffe5d9,#ffc5bc)','linear-gradient(145deg,#e3fff2,#a9e7d4)','linear-gradient(145deg,#fff1bd,#ffd88a)','linear-gradient(145deg,#eee5ff,#c6b6ff)','linear-gradient(145deg,#d9f6ff,#8edbe8)'][i]))
     ];
     $('#app').innerHTML=shell(
       '<section class="arcade-hero"><div class="arcade-orbit">✦ HANI BOARD GAME CLUB ✦</div><h1>하니 보드게임</h1><p>친구들과 모여 한 판! 봇과 연습할 수 있는 게임도 준비했어요.</p><div class="arcade-hero-badges"><span>🃏 카드게임</span><span>🎲 주사위</span><span>🧩 타일·추리</span></div></section>'+
       '<div class="section-title">🎮 지금 플레이</div><div class="section-sub">봇 연습 또는 친구와 온라인 방을 만들 수 있어요.</div><div class="arcade-game-grid">'+tiles.join('')+'</div><section class="card" style="padding:14px;margin-top:16px"><h3 style="margin-top:0">🔑 친구 방 코드로 참가</h3><p class="muted">친구에게 받은 방 코드를 입력해 주세요.</p><div style="display:flex;gap:8px"><input id="boardroom-code" class="input" maxlength="8" placeholder="예: A1B2C" style="text-transform:uppercase;min-width:0;flex:1"><button class="primary" onclick="window.joinBoardRoom()">참가</button></div></section>'+
-      '<section class="arcade-feature-card"><div class="arcade-feature-icon">♠️</div><div class="arcade-feature-copy"><b>홀덤 테이블</b><p>친구들과 하거나 봇과 연습할 수 있어요.</p></div><select id="holdem-stake" class="input arcade-stake" aria-label="참가 포인트">'+stakes.map(n=>'<option value="'+n+'">'+n.toLocaleString()+' P</option>').join('')+'</select><button class="primary" onclick="window.createHoldemRoom()">방 만들기</button><button class="secondary" onclick="window.startGame(\'holdem\')">봇과 연습</button></section>'+
-      '<div class="section-title">🌐 열린 홀덤 방</div><div id="holdem-room-list" class="arcade-room-list">'+(rooms.filter(r=>r.status==='waiting'||r.status==='ready').map(r=>'<div class="card room"><div><b>♠️ '+esc(r.room_code)+'</b><p>'+Number(r.stake).toLocaleString()+' P · '+(r.status==='waiting'?'대기 중':'상대 입장')+'</p></div><button class="secondary" onclick="window.joinHoldemRoom(\''+esc(r.room_code)+'\')">참가</button></div>').join('')||'<div class="card arcade-empty">아직 열린 방이 없어요. 첫 번째 방을 만들어봐요!</div>')+'</div>'
     );
   };
   window.haniStartBoardGame=function(type){
