@@ -49,7 +49,7 @@
   window.haniOnlineBangDiscard=i=>window.haniOnlineGameAction("bang_discard",{cardIndex:i});
   window.haniOnlineLasPlace=n=>window.haniOnlineGameAction("lasvegas_place",{num:n});
   window.haniBoardRoomStart=()=>send({type:"start"});
-  window.haniWordchainSubmit=()=>{const el=document.querySelector("#online-wordchain-input");const word=String(el?.value||"").trim().replace(/\\s/g,"");if(word.length<2){toast("두 글자 이상의 단어를 입력해 주세요.");return;}send({type:"action",action:"wordchain_submit",payload:{word:word}});};
+  window.haniWordchainSubmit=()=>{const el=document.querySelector("#online-wordchain-input");const word=String(el?.value||"").trim().replace(/\s/g,"");if(word.length<2){toast("두 글자 이상의 단어를 입력해 주세요.");return;}send({type:"action",action:"wordchain_submit",payload:{word:word}});};
   window.haniBoardRoomVoteStart=()=>send({type:"vote_start"});
   window.haniBoardRoomVote=id=>send({type:"vote",target:String(id)});
   window.haniBoardRoomChat=()=>{const el=document.querySelector("#boardroom-chat-input"),text=(el?.value||"").trim();if(!text)return;send({type:"chat",text:text});if(el)el.value="";};
