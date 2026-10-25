@@ -759,7 +759,7 @@ async function doAction(a){
 
 async function games(){
  $("#app").innerHTML=shell(`
- <section class="arcade-hero"><div class="arcade-orbit">✦ HANI BOARD GAME CLUB ✦</div><h1>하니 보드게임</h1><p>친구들과 모여 한 판! 방 코드를 공유해 실시간으로 대결해요.</p><div class="arcade-hero-badges"><span>🃏 카드게임</span><span>🎲 주사위</span><span>👥 온라인 대전</span></div></section>
+ <section class="arcade-hero"><div class="arcade-orbit">✦ SONGI BOARD GAME CLUB ✦</div><h1>송이보드게임</h1><p>친구들과 모여 한 판! 방 코드를 공유해 실시간으로 대결해요.</p><div class="arcade-hero-badges"><span>🃏 카드게임</span><span>🎲 주사위</span><span>👥 온라인 대전</span></div></section>
  <div class="section-title">🎮 지금 플레이</div><div class="section-sub">봇 연습 또는 친구와 실시간 대전</div>
  <div class="arcade-game-grid">${arcadeCard("rps","✊","가위바위보","봇과 3판 승부","linear-gradient(145deg,#dff7ff,#9cbaff)")}${arcadeCard("wordchain","가","끝말잇기 대전","친구와 실시간 끝말잇기","linear-gradient(145deg,#ffe8f4,#c7b5ff)")}${arcadeCard("bang","🤠","뱅!","역할을 숨기고 살아남는 카드게임","linear-gradient(145deg,#ffe5d9,#ffc5bc)")}${arcadeCard("tichu","🃏","티츄","4인 팀 카드게임","linear-gradient(145deg,#e3fff2,#a9e7d4)")}${arcadeCard("rummikub","🔢","루미큐브","숫자 타일 조합 게임","linear-gradient(145deg,#fff1bd,#ffd88a)")}${arcadeCard("liar","🤥","라이어 게임","대화와 투표로 라이어 찾기","linear-gradient(145deg,#eee5ff,#c6b6ff)")}${arcadeCard("lasvegas","🎲","라스베가스","주사위 배치 전략 게임","linear-gradient(145deg,#d9f6ff,#8edbe8)")}</div>
  <section class="card" style="padding:14px;margin-top:16px"><h3 style="margin-top:0">🔑 친구 방 코드로 참가</h3><p class="muted">친구에게 받은 방 코드를 입력해 주세요.</p><div style="display:flex;gap:8px"><input id="boardroom-code" class="input" maxlength="8" placeholder="예: A1B2C" style="text-transform:uppercase;min-width:0;flex:1"><button class="primary" onclick="window.joinBoardRoom()">참가</button></div></section>
