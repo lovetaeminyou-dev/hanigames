@@ -21,14 +21,15 @@
     return oldStart(type);
   };
   window.haniBoardGamesLobby=async function(){
-        const tiles=[
+    const tiles=[
       arcadeCard('rps','✊','가위바위보','봇과 3판 승부','linear-gradient(145deg,#dff7ff,#9cbaff)'),
-      arcadeCard('wordchain','가','끝말잇기 대전','단어를 이어 봇을 이겨봐요','linear-gradient(145deg,#ffe8f4,#c7b5ff)'),
-      ...Object.keys(names).map((id,i)=>arcadeCard(id,names[id].icon,names[id].name,names[id].desc,['linear-gradient(145deg,#ffe5d9,#ffc5bc)','linear-gradient(145deg,#e3fff2,#a9e7d4)','linear-gradient(145deg,#fff1bd,#ffd88a)','linear-gradient(145deg,#eee5ff,#c6b6ff)','linear-gradient(145deg,#d9f6ff,#8edbe8)'][i]))
+      arcadeCard('wordchain','가','끝말잇기 대전','친구와 실시간 끝말잇기','linear-gradient(145deg,#ffe8f4,#c7b5ff)'),
+      ...Object.keys(names).filter(id=>id!=='wordchain').map((id,i)=>arcadeCard(id,names[id].icon,names[id].name,names[id].desc,['linear-gradient(145deg,#ffe5d9,#ffc5bc)','linear-gradient(145deg,#e3fff2,#a9e7d4)','linear-gradient(145deg,#fff1bd,#ffd88a)','linear-gradient(145deg,#eee5ff,#c6b6ff)','linear-gradient(145deg,#d9f6ff,#8edbe8)'][i]))
     ];
     $('#app').innerHTML=shell(
-      '<section class="arcade-hero"><div class="arcade-orbit">✦ HANI BOARD GAME CLUB ✦</div><h1>하니 보드게임</h1><p>친구들과 모여 한 판! 봇과 연습할 수 있는 게임도 준비했어요.</p><div class="arcade-hero-badges"><span>🃏 카드게임</span><span>🎲 주사위</span><span>🧩 타일·추리</span></div></section>'+
-      '<div class="section-title">🎮 지금 플레이</div><div class="section-sub">봇 연습 또는 친구와 온라인 방을 만들 수 있어요.</div><div class="arcade-game-grid">'+tiles.join('')+'</div><section class="card" style="padding:14px;margin-top:16px"><h3 style="margin-top:0">🔑 친구 방 코드로 참가</h3><p class="muted">친구에게 받은 방 코드를 입력해 주세요.</p><div style="display:flex;gap:8px"><input id="boardroom-code" class="input" maxlength="8" placeholder="예: A1B2C" style="text-transform:uppercase;min-width:0;flex:1"><button class="primary" onclick="window.joinBoardRoom()">참가</button></div></section>'+
+      '<section class="arcade-hero"><div class="arcade-orbit">✦ HANI BOARD GAME CLUB ✦</div><h1>하니 보드게임</h1><p>친구들과 모여 한 판! 방 코드를 공유해 실시간으로 대결해요.</p><div class="arcade-hero-badges"><span>🃏 카드게임</span><span>🎲 주사위</span><span>👥 온라인 대전</span></div></section>'+
+      '<div class="section-title">🎮 지금 플레이</div><div class="section-sub">봇 연습 또는 친구와 실시간 대전</div><div class="arcade-game-grid">'+tiles.join('')+'</div>'+
+      '<section class="card" style="padding:14px;margin-top:16px"><h3 style="margin-top:0">🔑 친구 방 코드로 참가</h3><p class="muted">친구에게 받은 방 코드를 입력해 주세요.</p><div style="display:flex;gap:8px"><input id="boardroom-code" class="input" maxlength="8" placeholder="예: A1B2C" style="text-transform:uppercase;min-width:0;flex:1"><button class="primary" onclick="window.joinBoardRoom()">참가</button></div></section>'
     );
   };
   window.haniStartBoardGame=function(type){
