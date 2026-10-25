@@ -603,7 +603,7 @@ async function home(){
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
         ${choices.map(([id,name,emoji],index)=>`
           <button class="${id===selected?'primary':'secondary'}" onclick="selectProfileCharacterId('${id}')" style="padding:7px;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-start">
-            <div class="character-art" data-character-index="${index}" aria-label="${name}" style="display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:80/97;background-position:${(index%4)*100/3}% ${Math.floor(index/4)*50}%;background-size:400% 300%;background-repeat:no-repeat;border-radius:12px;font-size:60px">${emoji}</div>
+            <div class="character-art" data-character-index="${index}" aria-label="${name}" style="display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:3/4;background-position:${(index%4)*100/3}% ${Math.floor(index/4)*50}%;background-size:400% 300%;background-repeat:no-repeat;border-radius:12px;font-size:60px">${emoji}</div>
             ${id===selected?'<small style="display:block;padding:6px 0 2px;font-weight:900">선택됨 ✓</small>':''}
           </button>`).join("")}
       </div>
@@ -1212,7 +1212,7 @@ async function profile(){
   $("#app").innerHTML=shell(`
     <div class="section-title">내 기록</div>
     <section class="card" style="padding:20px;text-align:center">
-      <div class="character-art" data-character-index="${["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"].indexOf(selected)}" aria-label="${names[selected]}" style="width:112px;aspect-ratio:80/97;margin:auto;background-position:${(["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"].indexOf(selected)%4)*100/3}% ${Math.floor(["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"].indexOf(selected)/4)*50}%;background-size:400% 300%;background-repeat:no-repeat;font-size:76px">${emojis[selected]}</div>
+      <div class="character-art" data-character-index="${["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"].indexOf(selected)}" aria-label="${names[selected]}" style="width:112px;aspect-ratio:3/4;margin:auto;background-position:${(["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"].indexOf(selected)%4)*100/3}% ${Math.floor(["cat","rabbit","fox","bear","panda","frog","mouse","tiger","koala","penguin","unicorn","dragon"].indexOf(selected)/4)*50}%;background-size:400% 300%;background-repeat:no-repeat;font-size:76px">${emojis[selected]}</div>
       <h2>${esc(u.username)}</h2><p class="muted">${esc(names[selected])} 캐릭터</p>
       <div class="stats" style="margin-top:18px">
         <div class="stat"><small>승리</small><strong>${u.wins??0}</strong></div>
