@@ -1412,7 +1412,7 @@ async function profile(){
       <div style="font-size:76px;line-height:1.2">${selected}</div><h2>${esc(u.username)}</h2><p class="muted">${esc(u.title||"하니게임즈 회원")}</p>
       <div class="section-title" style="text-align:left">캐릭터 선택</div><p class="muted" style="text-align:left">마음에 드는 캐릭터를 골라 프로필에 표시해요.</p>
       <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
-        ${choices.map(ch=>'<button class="'+(ch===selected?'primary':'secondary')+'" style="font-size:30px;padding:10px 4px" onclick="selectProfileCharacter(\\''+ch+'\\')">'+ch+'</button>').join("")}
+        ${choices.map(ch=>'<button class="'+(ch===selected?'primary':'secondary')+'" style="font-size:30px;padding:10px 4px" onclick="selectProfileCharacter(this.textContent)">'+ch+'</button>').join("")}
       </div>
       <div class="stats" style="margin-top:18px"><div class="stat"><small>승리</small><strong>${u.wins}</strong></div><div class="stat"><small>패배</small><strong>${u.losses}</strong></div><div class="stat"><small>포인트</small><strong>${u.points.toLocaleString()}</strong></div><div class="stat"><small>진화</small><strong>${u.evolution}단계</strong></div></div>
     </section>
