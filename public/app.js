@@ -223,7 +223,7 @@ function setHaniBackground(bg){const data=haniCosmetics();data.background=bg;sav
 function notice(){
 
   const n=window.HANI_NOTICE||{
-    message:"하니게임즈에 오신 것을 환영해요 🐰💙",
+    message:"송이보드게임에 오신 것을 환영해요 🐰💙",
     button_text:"확인",
     button_link:""
   };
@@ -233,7 +233,7 @@ function notice(){
       <span>
         📢 ${esc(
           n.message||
-          "하니게임즈에 오신 것을 환영해요 🐰💙"
+          "송이보드게임에 오신 것을 환영해요 🐰💙"
         )}
       </span>
 
@@ -286,7 +286,7 @@ function shell(body){
 
         <div class="brand">
           <span class="logo">🐰</span>
-          하니게임즈
+          송이보드게임
         </div>
 
         <div class="top-actions">
@@ -384,10 +384,10 @@ function loginPage(){
           🐰
         </div>
 
-        <h1>하니게임즈</h1>
+        <h1>송이보드게임</h1>
 
         <p class="center muted">
-          하니를 키우고 게임하며 함께 놀아요 💚
+          보드게임을 함께 즐겨요 💜
         </p>
 
         <div class="field">
@@ -1141,9 +1141,9 @@ async function ranks(){
 function newsItems(){
 
   return [
-    "새로운 하니게임즈 시즌이 시작되었습니다.",
+    "송이보드게임에 오신 것을 환영합니다!",
     "지뢰찾기와 사천성 게임 시스템이 업데이트되었습니다.",
-    "하니의 진화 단계가 확장되었습니다.",
+    "새로운 보드게임이 추가되었습니다.",
     "오늘의 첫 게임 기록을 남겨보세요.",
     "새로운 게임방이 열렸습니다."
   ];
@@ -1176,7 +1176,7 @@ async function news(){
     shell(`
 
       <div class="section-title">
-        하니게임즈 소식
+        송이보드게임 소식
       </div>
 
       <div class="section-sub">
@@ -2083,7 +2083,7 @@ async function sendPresence(){
 ========================================================= */
 
 window.HANI_NOTICE={
-  message:"하니게임즈에 오신 것을 환영해요 🐰💙",
+  message:"송이보드게임에 오신 것을 환영해요 🐰💙",
   button_text:"확인",
   button_link:""
 };
