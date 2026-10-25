@@ -572,9 +572,9 @@ async function home(){
   const u=S.user;
   if(!u) return logout();
   const choices=[
-    ["cat","고양이"],["rabbit","토끼"],["fox","여우"],["bear","곰"],
-    ["panda","판다"],["frog","개구리"],["mouse","생쥐"],["tiger","호랑이"],
-    ["koala","코알라"],["penguin","펭귄"],["unicorn","유니콘"],["dragon","용"]
+    ["cat","고양이","🐱"],["rabbit","토끼","🐰"],["fox","여우","🦊"],["bear","곰","🐻"],
+    ["panda","판다","🐼"],["frog","개구리","🐸"],["mouse","생쥐","🐹"],["tiger","호랑이","🐯"],
+    ["koala","코알라","🐨"],["penguin","펭귄","🐧"],["unicorn","유니콘","🦄"],["dragon","용","🐲"]
   ];
   const selected=profileCharacterId();
   $("#app").innerHTML=shell(`
@@ -582,9 +582,10 @@ async function home(){
     <p class="muted" style="margin:0 0 14px">마음에 드는 캐릭터를 골라 프로필에 표시해요 💙</p>
     <section class="card" style="padding:12px">
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
-        ${choices.map(([id,name])=>`
+        ${choices.map(([id,name,emoji])=>`
           <button class="${id===selected?'primary':'secondary'}" onclick="selectProfileCharacterId('${id}')" style="padding:7px;border-radius:16px;overflow:hidden">
-            <img src="/assets/characters/${id}.webp" alt="${name}" loading="lazy" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:12px;display:block">
+            <img src="/assets/characters/${id}.webp" alt="${name}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" style="width:100%;aspect-ratio:3/4;object-fit:contain;border-radius:12px;display:block">
+            <span aria-hidden="true" style="display:none;align-items:center;justify-content:center;font-size:72px;aspect-ratio:3/4">${emoji}</span>
             <span style="display:block;padding:7px 0 3px;font-weight:800">${name}</span>
             ${id===selected?'<small>선택됨 ✓</small>':''}
           </button>`).join("")}
@@ -1189,10 +1190,11 @@ async function profile(){
   const u=S.user;
   const selected=profileCharacterId();
   const names={cat:"고양이",rabbit:"토끼",fox:"여우",bear:"곰",panda:"판다",frog:"개구리",mouse:"생쥐",tiger:"호랑이",koala:"코알라",penguin:"펭귄",unicorn:"유니콘",dragon:"용"};
+  const emojis={cat:"🐱",rabbit:"🐰",fox:"🦊",bear:"🐻",panda:"🐼",frog:"🐸",mouse:"🐹",tiger:"🐯",koala:"🐨",penguin:"🐧",unicorn:"🦄",dragon:"🐲"};
   $("#app").innerHTML=shell(`
     <div class="section-title">내 기록</div>
     <section class="card" style="padding:20px;text-align:center">
-      <img src="/assets/characters/${selected}.webp" alt="${names[selected]}" style="width:112px;aspect-ratio:3/4;object-fit:cover;border-radius:18px">
+      <img src="/assets/characters/${selected}.webp" alt="${names[selected]}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" style="width:112px;aspect-ratio:3/4;object-fit:contain;border-radius:18px"><div style="display:none;font-size:76px">${emojis[selected]}</div>
       <h2>${esc(u.username)}</h2><p class="muted">${esc(names[selected])} 캐릭터</p>
       <div class="stats" style="margin-top:18px">
         <div class="stat"><small>승리</small><strong>${u.wins??0}</strong></div>
