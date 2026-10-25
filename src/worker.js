@@ -2116,7 +2116,7 @@ export class GameRoom {
     if(this.bgGame==="wordchain"){
       const pi=g.players.findIndex(x=>x.id===player.id);if(pi<0||pi!==g.turn)return;
       if(action!=="wordchain_submit")return;
-      const word=String(payload.word||"").trim().replace(/\\s/g,"");
+      const word=String(payload.word||"").trim().replace(/\s/g,"");
       if(word.length<2||word.length>20){this.bgSend(Array.from(this.bgSockets.keys()).find(ws=>this.bgSockets.get(ws)?.id===player.id),{type:"notice",text:"단어는 2~20자로 입력해 주세요."});return;}
       if(g.used.includes(word)){this.bgSend(Array.from(this.bgSockets.keys()).find(ws=>this.bgSockets.get(ws)?.id===player.id),{type:"notice",text:"이미 나온 단어예요."});return;}
       if(g.currentWord!=="시작"&&!word.startsWith(g.currentWord.slice(-1))){this.bgSend(Array.from(this.bgSockets.keys()).find(ws=>this.bgSockets.get(ws)?.id===player.id),{type:"notice",text:"‘"+g.currentWord.slice(-1)+"’(으)로 시작하는 단어를 입력해 주세요."});return;}
