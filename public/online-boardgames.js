@@ -1,7 +1,7 @@
 /* HANI online boardgame rooms */
 (function(){
   const escHTML=s=>String(s==null?"":s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-  const labels={bang:"🤠 뱅!",tichu:"🃏 티츄",rummikub:"🔢 루미큐브",liar:"🤥 라이어 게임",lasvegas:"🎲 라스베가스"};
+  const labels={wordchain:"🔤 끝말잇기",bang:"🤠 뱅!",tichu:"🃏 티츄",rummikub:"🔢 루미큐브",liar:"🤥 라이어 게임",lasvegas:"🎲 라스베가스"};
   window.createBoardRoom=async function(game){
     try{
       const d=await api("/api/boardrooms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({game:game})});
@@ -49,6 +49,7 @@
   window.haniOnlineBangDiscard=i=>window.haniOnlineGameAction("bang_discard",{cardIndex:i});
   window.haniOnlineLasPlace=n=>window.haniOnlineGameAction("lasvegas_place",{num:n});
   window.haniBoardRoomStart=()=>send({type:"start"});
+  window.haniWordchainSubmit=()=>{const el=document.querySelector("#online-wordchain-input");const word=String(el?.value||"").trim().replace(/\\s/g,"");if(word.length<2){toast("두 글자 이상의 단어를 입력해 주세요.");return;}send({type:"action",action:"wordchain_submit",payload:{word:word}});};
   window.haniBoardRoomVoteStart=()=>send({type:"vote_start"});
   window.haniBoardRoomVote=id=>send({type:"vote",target:String(id)});
   window.haniBoardRoomChat=()=>{const el=document.querySelector("#boardroom-chat-input"),text=(el?.value||"").trim();if(!text)return;send({type:"chat",text:text});if(el)el.value="";};
@@ -63,7 +64,11 @@
     const players=(st.players||[]).map(p=>'<div class="card" style="padding:10px;display:flex;justify-content:space-between;align-items:center;gap:8px"><b>'+escHTML(p.name)+'</b><span class="tag">'+(p.ready?"준비 완료":"접속 중")+'</span></div>').join("")||'<p class="muted">참가자를 기다리고 있어요.</p>';
     const chat=(st.chat||[]).map(m=>'<div style="padding:7px 0;border-bottom:1px solid var(--border,#e8edf5)"><b>'+escHTML(m.name)+'</b>　'+escHTML(m.text)+'</div>').join("")||'<p class="muted">아직 채팅이 없어요.</p>';
     let gameBody="";
-    if(r.game==="liar"&&priv){
+    if(r.game==="wordchain"&&gs){
+      const last=gs.currentWord||"시작";
+      gameBody='<section class="card" style="padding:14px;margin-top:12px"><div class="section-sub">이어갈 글자</div><div style="font-size:36px;font-weight:900;text-align:center;margin:8px 0">'+escHTML(last.slice(-1))+'</div><p>'+(myTurn?"내 차례예요! 단어를 입력해 주세요.":"상대가 단어를 입력하고 있어요.")+'</p><div style="display:flex;gap:8px"><input id="online-wordchain-input" class="input" maxlength="20" placeholder="두 글자 이상 단어" style="min-width:0;flex:1" '+(!myTurn||gs.over?"disabled":"")+' onkeydown="if(event.key===&quot;Enter&quot;)window.haniWordchainSubmit()"><button class="primary" '+(!myTurn||gs.over?"disabled":"")+' onclick="window.haniWordchainSubmit()">입력</button></div><p class="muted">중복 단어는 사용할 수 없어요.</p></section><section class="card" style="padding:12px;margin-top:12px"><b>단어 기록</b>'+(gs.history||[]).slice().reverse().map(x=>'<p style="margin:7px 0"><b>'+escHTML(x.name)+'</b>　'+escHTML(x.word)+'</p>').join("")+'</section>';
+      if(gs.over)gameBody+='<section class="card" style="padding:14px;margin-top:12px"><h2>'+escHTML(gs.winner||"게임 종료")+'</h2><button class="primary" onclick="window.haniBoardRoomStart()">다시 시작</button></section>';
+    }else if(r.game==="liar"&&priv){
       gameBody='<section class="card" style="padding:14px;margin-top:12px"><div class="section-sub">카테고리 · '+escHTML(priv.category)+'</div><h2 style="margin:6px 0">'+(st.phase==="chat"?escHTML(priv.clue):"🔒 제시어 비공개")+'</h2><b>'+(priv.isLiar?"🤥 당신은 라이어예요!":"🙂 당신은 시민이에요.")+'</b><p class="muted">제시어를 직접 말하지 말고 힌트로 대화해 보세요.</p></section>';
       if(st.phase==="chat")gameBody+='<button class="primary" style="width:100%;margin-top:10px" onclick="window.haniBoardRoomVoteStart()">토론 종료 · 투표 시작</button>';
       if(st.phase==="vote")gameBody+='<section class="card" style="padding:14px;margin-top:12px"><h3>누가 라이어일까요?</h3><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">'+(st.players||[]).map(p=>'<button class="secondary" onclick="window.haniBoardRoomVote(&quot;'+escHTML(p.id)+'&quot;)">'+escHTML(p.name)+'</button>').join("")+'</div></section>';
