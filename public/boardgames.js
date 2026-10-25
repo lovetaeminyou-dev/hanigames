@@ -17,7 +17,7 @@
   const oldStart=window.startGame;
   window.startGame=function(type){
     if(type==='shisen'||type==='minesweeper'){toast('이 게임은 목록에서 제외됐어요.');return;}
-    if(names[type]){S.modal=null;S.game={type:type};return window.haniStartBoardGame(type);}
+    if(type==='wordchain'){S.modal=null;return window.createBoardRoom('wordchain');}if(names[type]){S.modal=null;S.game={type:type};return window.haniStartBoardGame(type);}
     return oldStart(type);
   };
   window.haniBoardGamesLobby=async function(){
