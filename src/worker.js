@@ -1118,7 +1118,7 @@ async function boardgameRooms(request, env, user) {
   if (request.method === "POST") {
     const body = await readJson(request);
     const game = String(body.game||"");
-    const allowed = ["bang","tichu","rummikub","liar","lasvegas"];
+    const allowed = ["wordchain","bang","tichu","rummikub","liar","lasvegas"];
     if (!allowed.includes(game)) return json({error:"지원하지 않는 보드게임입니다."},400);
     let code = "";
     for(let i=0;i<12;i++){
@@ -2054,7 +2054,9 @@ export class GameRoom {
       if(this.bgSecret&&this.bgGame==="liar")privateData={isLiar:p.id===this.bgSecret.liarId,clue:p.id===this.bgSecret.liarId?this.bgSecret.liarWord:this.bgSecret.word,category:this.bgSecret.category};
       const g=this.bgGameState;
       if(g){
-        if(this.bgGame==="bang"){
+        if(this.bgGame==="wordchain"){
+          gameState={currentWord:g.currentWord,used:g.used,history:g.history,turnId:g.players[g.turn]?.id,over:g.over,winner:g.winner};
+        }else if(this.bgGame==="bang"){
           gameState={players:g.players.map(x=>({id:x.id,name:x.name,hp:x.hp,handCount:x.hand.length,alive:x.alive})),turnId:g.players[g.turn]?.id,log:g.log.slice(-12),over:g.over,winner:g.winner};
           const own=g.players.find(x=>x.id===p.id);if(own)privateData={role:own.role,hand:own.hand.slice(),hp:own.hp};
         }else if(this.bgGame==="tichu"){
@@ -2074,6 +2076,7 @@ export class GameRoom {
   bgShuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
   bgCreateGameState(people){
     const players=people.map(p=>({id:p.id,name:p.name}));
+    if(this.bgGame==="wordchain")return {players:players,turn:0,currentWord:"시작",used:[],history:[{name:"시스템",word:"시작"}],over:false,winner:""};
     if(this.bgGame==="bang"){
       const roles=this.bgShuffle(["보안관","무법자","무법자","배신자"]);
       const deck=this.bgShuffle([...Array(18).fill("bang"),...Array(8).fill("miss"),...Array(6).fill("beer"),...Array(5).fill("panic")]);
@@ -2110,7 +2113,15 @@ export class GameRoom {
   async bgHandleGameAction(player,d){
     const g=this.bgGameState;if(!g||g.over||this.bgPhase!=="playing")return;
     const action=String(d.action||""),payload=d.payload&&typeof d.payload==="object"?d.payload:{};
-    if(this.bgGame==="bang"){
+    if(this.bgGame==="wordchain"){
+      const pi=g.players.findIndex(x=>x.id===player.id);if(pi<0||pi!==g.turn)return;
+      if(action!=="wordchain_submit")return;
+      const word=String(payload.word||"").trim().replace(/\\s/g,"");
+      if(word.length<2||word.length>20){this.bgSend(Array.from(this.bgSockets.keys()).find(ws=>this.bgSockets.get(ws)?.id===player.id),{type:"notice",text:"단어는 2~20자로 입력해 주세요."});return;}
+      if(g.used.includes(word)){this.bgSend(Array.from(this.bgSockets.keys()).find(ws=>this.bgSockets.get(ws)?.id===player.id),{type:"notice",text:"이미 나온 단어예요."});return;}
+      if(g.currentWord!=="시작"&&!word.startsWith(g.currentWord.slice(-1))){this.bgSend(Array.from(this.bgSockets.keys()).find(ws=>this.bgSockets.get(ws)?.id===player.id),{type:"notice",text:"‘"+g.currentWord.slice(-1)+"’(으)로 시작하는 단어를 입력해 주세요."});return;}
+      g.used.push(word);g.history.push({name:player.name,word:word});g.currentWord=word;g.turn=(g.turn+1)%g.players.length;g.log.unshift(player.name+" · "+word);
+    }else if(this.bgGame==="bang"){
       const pi=g.players.findIndex(x=>x.id===player.id);if(pi<0||pi!==g.turn)return;
       const p=g.players[pi],ci=Number(payload.cardIndex);if(!Number.isInteger(ci)||ci<0||ci>=p.hand.length)return;
       const card=p.hand[ci];
@@ -2202,7 +2213,7 @@ export class GameRoom {
         await this.env.DB.prepare("UPDATE boardgame_rooms SET status='playing' WHERE room_code=?").bind(this.roomCode).run();
         this.bgBroadcast();return;
       }
-      const minimum={bang:4,tichu:4,rummikub:2,lasvegas:2}[this.bgGame]||2;
+      const minimum={wordchain:2,bang:4,tichu:4,rummikub:2,lasvegas:2}[this.bgGame]||2;
       if(people.length<minimum){this.bgSend(ws,{type:"notice",text:this.bgGame+" 게임은 최소 "+minimum+"명이 필요해요."});return;}
       this.bgGameState=this.bgCreateGameState(people);if(!this.bgGameState){this.bgSend(ws,{type:"notice",text:"이 게임은 온라인 플레이를 지원하지 않아요."});return;}
       this.bgPhase="playing";this.bgChat.push({id:"system",name:"시스템",text:"게임 시작! 차례와 패는 서버에서 동기화돼요.",at:Date.now()});
